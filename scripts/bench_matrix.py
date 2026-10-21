@@ -20,7 +20,8 @@ def run_bench(extra: list[str], env_threads: int | None = None) -> list[dict]:
     env = dict(os.environ)
     if env_threads is not None:
         env["NUMBA_NUM_THREADS"] = str(env_threads)
-    out = subprocess.run([sys.executable, str(BENCH), "--csv", *extra], env=env, capture_output=True, text=True, check=True)
+    command = [sys.executable, str(BENCH), "--csv", *extra]
+    out = subprocess.run(command, env=env, capture_output=True, text=True, check=True)
     return list(csv.DictReader(io.StringIO(out.stdout)))
 
 

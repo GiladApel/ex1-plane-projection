@@ -75,7 +75,9 @@ def main() -> None:
         print("\n".join(",".join(row) for row in rows))
         return
     print(f"{platform.processor()} | python {platform.python_version()} | volume {args.size}^3 | {args.frames} planes")
-    print(f"{'dtype':<8}{'planes':<9}{'backend':<9}{'interp':<11}{'median fps':>11}{'mean fps':>10}{'p95 ms':>9}{'min fps':>9}")
+    header = ("dtype", "planes", "backend", "interp", "median fps", "mean fps", "p95 ms", "min fps")
+    print(f"{header[0]:<8}{header[1]:<9}{header[2]:<9}{header[3]:<11}"
+          f"{header[4]:>11}{header[5]:>10}{header[6]:>9}{header[7]:>9}")
     for r in rows:
         print(f"{r[0]:<8}{r[1]:<9}{r[2]:<9}{r[3]:<11}{r[4]:>11}{r[5]:>10}{r[6]:>9}{r[7]:>9}")
 

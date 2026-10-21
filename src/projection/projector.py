@@ -83,8 +83,11 @@ class NumpyProjector(Projector):
         count = np.floor(d12) + 1
 
         bounds = self._chunk_bounds(height, int(count.max()))
-        jobs = [(slot, lo, hi) for slot, (lo, hi) in enumerate(zip(bounds[:-1], bounds[1:]))]
-        run = lambda job: self._project_rows(volume, image, a1, dp, d12, count, width, *job)
+        jobs = [(slot, lo, hi) for slot, (lo, hi) in enumerate(zip(bounds[:-1], bounds[1:], strict=True))]
+
+        def run(job):
+            self._project_rows(volume, image, a1, dp, d12, count, width, *job)
+
         if len(jobs) == 1:
             run(jobs[0])
         else:
@@ -155,7 +158,7 @@ class NumpyProjector(Projector):
     def _trilinear(volume: Volume, positions: list[np.ndarray]) -> np.ndarray:
         sx, sy, sz = volume.shape
         base = [np.floor(p) for p in positions]
-        frac = [p - b for p, b in zip(positions, base)]
+        frac = [p - b for p, b in zip(positions, base, strict=True)]
         acc = np.zeros(positions[0].shape, dtype=np.float64)
         for di in (0, 1):
             i = base[0] + di

@@ -36,7 +36,8 @@ def inputs(tmp_path):
 def read_frames(path):
     reader = imageio.get_reader(str(path))
     try:
-        return np.stack([frame for frame in reader])
+        # list(reader) would call len(reader), which imageio reports as infinite
+        return np.stack([frame for frame in reader])  # noqa: C416
     finally:
         reader.close()
 
@@ -83,7 +84,8 @@ def test_point_per_row_csv_gives_a_single_frame(inputs):
 
 def test_trilinear_on_numpy_warns_but_nearest_does_not(inputs, capsys):
     nrrd_path, csv_path, mp4_path = inputs
-    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--interp", "trilinear", "--backend", "numpy"]) == EXIT_OK
+    args = [str(nrrd_path), str(csv_path), str(mp4_path), "--interp", "trilinear", "--backend", "numpy"]
+    assert main(args) == EXIT_OK
     assert "warning: trilinear sampling on the NumPy backend is slow" in capsys.readouterr().err
     assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
     assert "warning" not in capsys.readouterr().err
@@ -91,7 +93,8 @@ def test_trilinear_on_numpy_warns_but_nearest_does_not(inputs, capsys):
 
 def test_trilinear_runs(inputs):
     nrrd_path, csv_path, mp4_path = inputs
-    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--interp", "trilinear", "--backend", "numpy"]) == EXIT_OK
+    args = [str(nrrd_path), str(csv_path), str(mp4_path), "--interp", "trilinear", "--backend", "numpy"]
+    assert main(args) == EXIT_OK
     assert read_frames(mp4_path).shape[0] == 4
 
 

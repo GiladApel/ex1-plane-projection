@@ -56,7 +56,8 @@ def main() -> int:
         print(f"unknown dataset(s): {', '.join(unknown)}; choose from {', '.join(DATASETS)}", file=sys.stderr)
         return 2
     DATA_DIR.mkdir(exist_ok=True)
-    return 0 if all([fetch(n) for n in names]) else 1
+    results = [fetch(n) for n in names]
+    return 0 if all(results) else 1
 
 
 if __name__ == "__main__":

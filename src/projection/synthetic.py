@@ -21,7 +21,7 @@ def sphere(shape: tuple[int, int, int], dtype=np.uint8) -> np.ndarray:
     grids = np.ogrid[tuple(slice(0, s) for s in shape)]
     center = [(s - 1) / 2 for s in shape]
     radius = min(shape) / 3
-    dist2 = sum((g - c) ** 2 for g, c in zip(grids, center))
+    dist2 = sum((g - c) ** 2 for g, c in zip(grids, center, strict=True))
     return np.where(dist2 <= radius**2, np.iinfo(dtype).max, 0).astype(dtype)
 
 

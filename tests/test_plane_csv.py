@@ -81,7 +81,9 @@ def test_missing_file(tmp_path):
 
 
 def test_to_voxel_is_applied(tmp_path):
-    shift = lambda pts: pts + 100.0
+    def shift(pts):
+        return pts + 100.0
+
     plane = parse_planes(write(tmp_path, f"{TRI}\n"), to_voxel=shift)[0]
     assert plane.rails().A1.tolist() == [105.0, 100.0, 100.0]
 

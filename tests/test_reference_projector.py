@@ -51,7 +51,10 @@ def test_triangle_on_gradient_has_constant_value_and_exact_pixel_count():
 
     rails = plane.rails()
     assert set(np.unique(image)) == {0, 3}
-    row_width = lambda y: 10 * y / math.sqrt(125)
+
+    def row_width(y):
+        return 10 * y / math.sqrt(125)
+
     assert np.count_nonzero(image) == sum(math.floor(row_width(y)) + 1 for y in range(rails.H))
 
 
