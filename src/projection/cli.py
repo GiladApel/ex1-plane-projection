@@ -10,7 +10,7 @@ import numpy as np
 from .errors import InvalidInputError
 from .io_nrrd import load_nrrd
 from .plane_csv import parse_planes
-from .projector import BACKENDS, make_projector
+from .projector import BACKENDS, NumpyProjector, make_projector
 from .render import FrameComposer, IntensityWindow
 from .sampler import Interpolation
 from .video import Mp4Writer
@@ -52,6 +52,12 @@ def run(args: argparse.Namespace) -> int:
     planes = parse_planes(args.csv, to_voxel=to_voxel, force=args.force)
 
     projector = make_projector(args.backend, Interpolation(args.interp))
+    if isinstance(projector, NumpyProjector) and args.interp == Interpolation.TRILINEAR.value:
+        print(
+            "warning: trilinear sampling on the NumPy backend is slow (about 20 fps on a 500^3 volume); "
+            "install numba or use --interp nearest",
+            file=sys.stderr,
+        )
     window = IntensityWindow.from_volume(volume)
     composer = FrameComposer.for_planes(planes)
     buffers: dict[tuple[int, int], np.ndarray] = {}
