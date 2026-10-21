@@ -84,3 +84,45 @@ def test_to_voxel_is_applied(tmp_path):
     shift = lambda pts: pts + 100.0
     plane = parse_planes(write(tmp_path, f"{TRI}\n"), to_voxel=shift)[0]
     assert plane.rails().A1.tolist() == [105.0, 100.0, 100.0]
+
+
+def test_point_per_row_triangle(tmp_path):
+    planes = parse_planes(write(tmp_path, "5,0,0\n0,10,0\n10,10,0\n"))
+    assert len(planes) == 1 and isinstance(planes[0], Triangle)
+    assert planes[0].rails().A1.tolist() == [5.0, 0.0, 0.0]
+
+
+def test_point_per_row_trapezoid_with_header_and_blank_lines(tmp_path):
+    planes = parse_planes(write(tmp_path, "x,y,z\n2,0,0\n0,10,0\n\n8,0,0\n10,10,0\n\n"))
+    assert len(planes) == 1 and isinstance(planes[0], Trapezoid)
+
+
+def test_point_per_row_matches_plane_per_row(tmp_path):
+    by_point = parse_planes(write(tmp_path, "2,0,0\n0,10,0\n8,0,0\n10,10,0\n"))[0].rails()
+    by_row = parse_planes(write(tmp_path, f"{TRAP}\n"))[0].rails()
+    assert (by_point.H, by_point.W) == (by_row.H, by_row.W)
+    assert by_point.A1.tolist() == by_row.A1.tolist() and by_point.v2.tolist() == by_row.v2.tolist()
+
+
+def test_point_per_row_wrong_row_count(tmp_path):
+    with pytest.raises(InvalidInputError, match="needs 3 or 4 rows, got 5"):
+        parse_planes(write(tmp_path, "0,0,0\n1,1,1\n2,2,2\n3,3,3\n4,4,4\n"))
+    with pytest.raises(InvalidInputError, match="needs 3 or 4 rows, got 2"):
+        parse_planes(write(tmp_path, "0,0,0\n1,1,1\n"))
+
+
+def test_point_per_row_bad_row_reports_line(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":2: expected 3 values"):
+        parse_planes(write(tmp_path, "5,0,0\n0,10\n10,10,0\n"))
+    with pytest.raises(InvalidInputError, match=r":3: non-numeric"):
+        parse_planes(write(tmp_path, "5,0,0\n0,10,0\n10,q,0\n"))
+
+
+def test_point_per_row_invalid_plane_reports_first_line(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":1: .*isosceles"):
+        parse_planes(write(tmp_path, "0,0,0\n10,0,0\n0,6,0\n"))
+
+
+def test_point_per_row_applies_to_voxel(tmp_path):
+    plane = parse_planes(write(tmp_path, "5,0,0\n0,10,0\n10,10,0\n"), to_voxel=lambda p: p + 100.0)[0]
+    assert plane.rails().A1.tolist() == [105.0, 100.0, 100.0]

@@ -17,18 +17,22 @@ def parse_planes(
     to_voxel: Callable[[np.ndarray], np.ndarray] | None = None,
     force: bool = False,
 ) -> list[Plane]:
-    """Read one plane per CSV row.
+    """Read the planes of a CSV file. Two layouts are accepted:
+
+    plane per row:  every row has 9 numbers (triangle) or 12 numbers (trapezoid); one plane per row
+    point per row:  3 or 4 rows of exactly 3 numbers (x, y, z); together they are one plane
 
     Pseudo-code:
         1. read all non-blank rows
         2. if the first row has a non-numeric cell: treat it as a header and drop it
-        3. for each remaining row (keeping its file line number):
-             a. parse every cell as a float
-             b. require 9 cells (triangle) or 12 cells (trapezoid), the same for all rows
-             c. reshape to points, apply to_voxel if given
-             d. build and validate the plane
-           any failure raises InvalidInputError prefixed with "<path>:<line>:"
-        4. require at least one plane
+        3. if the first row has 3 cells: point-per-row layout
+               require 3 or 4 rows of 3 numbers, build one plane from them
+           else: plane-per-row layout
+               for each row (keeping its file line number):
+                   parse every cell as a float; require 9 or 12 cells, the same for all rows
+                   reshape to points, apply to_voxel if given, build and validate the plane
+        4. any failure raises InvalidInputError prefixed with "<path>:<line>:"
+        5. require at least one plane
     """
     path = Path(path)
     if not path.is_file():
@@ -42,6 +46,12 @@ def parse_planes(
     if not rows:
         raise InvalidInputError(f"{path}: no planes found")
 
+    if len(rows[0][1]) == 3:
+        return [_plane_from_point_rows(path, rows, to_voxel, force)]
+    return _planes_from_plane_rows(path, rows, to_voxel, force)
+
+
+def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool) -> list[Plane]:
     planes: list[Plane] = []
     expected: int | None = None
     for line, row in rows:
@@ -58,6 +68,28 @@ def parse_planes(
         except InvalidInputError as exc:
             raise InvalidInputError(f"{path}:{line}: {exc}") from exc
     return planes
+
+
+def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool) -> Plane:
+    first_line = rows[0][0]
+    if len(rows) not in (3, 4):
+        raise InvalidInputError(f"{path}:{first_line}: point-per-row layout needs 3 or 4 rows, got {len(rows)}")
+    points = []
+    for line, row in rows:
+        try:
+            values = np.array([float(c) for c in row], dtype=np.float64)
+        except ValueError as exc:
+            raise InvalidInputError(f"{path}:{line}: non-numeric value") from exc
+        if len(values) != 3:
+            raise InvalidInputError(f"{path}:{line}: expected 3 values (x, y, z) per point, got {len(values)}")
+        points.append(values)
+    points = np.array(points)
+    try:
+        if to_voxel is not None:
+            points = to_voxel(points)
+        return plane_from_points(points, force=force)
+    except InvalidInputError as exc:
+        raise InvalidInputError(f"{path}:{first_line}: {exc}") from exc
 
 
 def _is_numeric(row: list[str]) -> bool:
