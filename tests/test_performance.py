@@ -5,7 +5,7 @@ from projection import synthetic
 from projection.projector import NumbaProjector, NumpyProjector
 from projection.volume import Volume
 
-MIN_FPS = {"numba": 100, "numpy": 30}
+MIN_FPS = {"numba": 100, "numpy": 100}
 
 
 def median_fps(projector, volume, planes):
@@ -34,6 +34,6 @@ def test_numba_meets_100_fps_on_500_cubed(big_volume):
 
 
 @pytest.mark.slow
-def test_numpy_meets_30_fps_on_500_cubed(big_volume):
+def test_numpy_meets_100_fps_on_500_cubed(big_volume):
     fps = median_fps(NumpyProjector(), big_volume, synthetic.oblique_rectangles(500, 50))
     assert fps >= MIN_FPS["numpy"], f"{fps:.0f} fps"
