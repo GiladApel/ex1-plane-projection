@@ -76,10 +76,7 @@ def test_trapezoid_rows(inputs):
 
 def test_point_per_row_csv_gives_a_single_frame(inputs):
     nrrd_path, csv_path, mp4_path = inputs
-    csv_path.write_text("16,6,16
-6,26,16
-26,26,16
-")
+    csv_path.write_text("16,6,16\n6,26,16\n26,26,16\n")
     assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
     assert read_frames(mp4_path).shape[0] == 1
 
