@@ -22,7 +22,12 @@ try:
 except ImportError:
     HAVE_NUMBA = False
 
-BACKENDS = [NumpyProjector] + ([NumbaProjector] if HAVE_NUMBA else [])
+def threaded_numpy(mode=Interpolation.NEAREST):
+    """NumPy backend forced onto the multi-chunk path even for tiny frames."""
+    return NumpyProjector(mode, threads=3, min_parallel_cells=0)
+
+
+BACKENDS = [NumpyProjector, threaded_numpy] + ([NumbaProjector] if HAVE_NUMBA else [])
 MODES = list(Interpolation)
 SETTINGS = settings(max_examples=120, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 
@@ -132,3 +137,19 @@ def test_make_projector_falls_back_without_numba(monkeypatch):
     assert isinstance(make_projector("auto"), NumpyProjector)
     with pytest.raises(InvalidInputError, match="not installed"):
         make_projector("numba")
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("threads", [1, 2, 3, 7])
+def test_numpy_result_does_not_depend_on_thread_count(mode, threads):
+    volume = Volume(synthetic.random_volume((40, 40, 40), np.uint16, seed=11))
+    plane = synthetic.random_plane(np.random.default_rng(5), (19.5, 19.5, 19.5), 41.5, 30.0, 12.0)
+    expected = NumpyProjector(mode, threads=1).project(volume, plane)
+    actual = NumpyProjector(mode, threads=threads, min_parallel_cells=0).project(volume, plane)
+    assert np.array_equal(actual, expected)
+    assert np.array_equal(actual, ReferenceProjector(mode).project(volume, plane))
+
+
+def test_numpy_rejects_zero_threads():
+    with pytest.raises(ValueError, match="threads"):
+        NumpyProjector(threads=0)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import math
+import os
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -33,25 +35,41 @@ class Projector(ABC):
 
 
 class NumpyProjector(Projector):
-    """Vectorized implementation: the whole (H, N) sample grid is computed with broadcasting.
+    """Vectorized implementation: the (rows, N) sample grid is computed with broadcasting.
 
-    Large temporaries are cached between calls (one slot per name), so repeated calls on same-sized
-    planes allocate almost nothing. An instance must not be used from several threads at once.
+    Large frames are split into row chunks that run on a thread pool (NumPy releases the GIL inside
+    array operations). Every chunk performs the same arithmetic in the same order as the single-chunk
+    case, so the result does not depend on the thread count. Temporaries are cached per chunk slot and
+    reused between calls. An instance must not be used from several threads at once.
     """
 
-    def __init__(self, interpolation: Interpolation = Interpolation.NEAREST) -> None:
+    def __init__(
+        self,
+        interpolation: Interpolation = Interpolation.NEAREST,
+        threads: int | None = None,
+        min_parallel_cells: int = 40_000,
+    ) -> None:
+        # Measured on a 16-thread CPU: gains stop at about 4 threads (indexing steps hold the GIL).
+        threads = min(os.cpu_count() or 1, 4) if threads is None else threads
+        if threads < 1:
+            raise ValueError("threads must be at least 1")
         self._interpolation = interpolation
-        self._buffers: dict[str, np.ndarray] = {}
+        self._threads = threads
+        self._min_parallel_cells = min_parallel_cells
+        self._buffers: dict[tuple[str, int], np.ndarray] = {}
+        self._pool: ThreadPoolExecutor | None = None
 
     def project(self, volume: Volume, plane: Plane, out: np.ndarray | None = None) -> np.ndarray:
         """Pseudo-code (same arithmetic, in the same order, as ReferenceProjector):
 
         1. y = 0 .. H-1 as a column; a1 = A1 + y*v1; a2 = A2 + y*v2; d12 = |a2 - a1|; dp = (a2 - a1)/d12
-        2. x1 = 0 .. N-1 as a row, N = floor(max(d12)) + 1
-        3. xf = floor((W-1)/2 - d12/2 + x1 + 0.5); keep[y, x1] = x1 <= floor(d12) and 0 <= xf < W
-        4. for the whole (H, N) grid: p = a1[y] + x1*dp[y]; value = sample(M, p)
-           (nearest sampling also clears keep where p is outside the volume)
-        5. image[y, xf] = value where keep
+        2. split the rows into chunks (one chunk when the frame is small)
+        3. for each chunk, in parallel:
+             x1 = 0 .. N-1 as a row, N = floor(max(d12 in chunk)) + 1
+             xf = floor((W-1)/2 - d12/2 + x1 + 0.5); keep[y, x1] = x1 <= floor(d12) and 0 <= xf < W
+             for the whole grid: p = a1[y] + x1*dp[y]; value = sample(M, p)
+             (nearest sampling also clears keep where p is outside the volume)
+             image[y, xf] = value where keep
         """
         rails = plane.rails()
         image = self._prepare_out(volume, plane, out)
@@ -63,37 +81,60 @@ class NumpyProjector(Projector):
         d12 = np.sqrt(diff[:, 0] * diff[:, 0] + diff[:, 1] * diff[:, 1] + diff[:, 2] * diff[:, 2])
         dp = diff / np.where(d12 > 0, d12, 1.0)[:, None]
         count = np.floor(d12) + 1
-        x1 = np.arange(int(count.max()), dtype=np.float64)[None, :]
-        grid = (height, x1.shape[1])
 
-        xf = self._buffer("xf", grid, np.float64)
-        np.add(((width - 1) / 2.0 - d12 / 2.0)[:, None], x1, out=xf)
-        xf += 0.5
-        np.floor(xf, out=xf)
-        keep = (x1 < count[:, None]) & (xf >= 0) & (xf < width)
-
-        if self._interpolation is Interpolation.NEAREST:
-            values = self._nearest(volume, a1, dp, x1, keep)
+        bounds = self._chunk_bounds(height, int(count.max()))
+        jobs = [(slot, lo, hi) for slot, (lo, hi) in enumerate(zip(bounds[:-1], bounds[1:]))]
+        run = lambda job: self._project_rows(volume, image, a1, dp, d12, count, width, *job)
+        if len(jobs) == 1:
+            run(jobs[0])
         else:
-            positions = [a1[:, axis, None] + x1 * dp[:, axis, None] for axis in range(3)]
-            values = self._trilinear(volume, positions)
-
-        xf += y * width
-        image.reshape(-1)[xf[keep].astype(np.intp)] = values[keep]
+            list(self._executor().map(run, jobs))
         return image
 
-    def _buffer(self, name: str, shape: tuple[int, ...], dtype) -> np.ndarray:
-        buf = self._buffers.get(name)
+    def _chunk_bounds(self, height: int, columns: int) -> list[int]:
+        chunks = 1
+        if self._threads > 1 and height * columns >= self._min_parallel_cells:
+            chunks = min(height, self._threads)
+        return [height * i // chunks for i in range(chunks + 1)]
+
+    def _executor(self) -> ThreadPoolExecutor:
+        if self._pool is None:
+            self._pool = ThreadPoolExecutor(max_workers=self._threads)
+        return self._pool
+
+    def _project_rows(self, volume, image, a1, dp, d12, count, width, slot, lo, hi) -> None:
+        rows = slice(lo, hi)
+        count_rows = count[rows]
+        x1 = np.arange(int(count_rows.max()), dtype=np.float64)[None, :]
+        grid = (hi - lo, x1.shape[1])
+
+        xf = self._buffer("xf", slot, grid, np.float64)
+        np.add(((width - 1) / 2.0 - d12[rows] / 2.0)[:, None], x1, out=xf)
+        xf += 0.5
+        np.floor(xf, out=xf)
+        keep = (x1 < count_rows[:, None]) & (xf >= 0) & (xf < width)
+
+        if self._interpolation is Interpolation.NEAREST:
+            values = self._nearest(volume, a1[rows], dp[rows], x1, keep, slot)
+        else:
+            positions = [a1[rows, axis, None] + x1 * dp[rows, axis, None] for axis in range(3)]
+            values = self._trilinear(volume, positions)
+
+        xf += np.arange(lo, hi, dtype=np.float64)[:, None] * width
+        image.reshape(-1)[xf[keep].astype(np.intp)] = values[keep]
+
+    def _buffer(self, name: str, slot: int, shape: tuple[int, ...], dtype) -> np.ndarray:
+        buf = self._buffers.get((name, slot))
         if buf is None or buf.shape != shape or buf.dtype != dtype:
-            buf = self._buffers[name] = np.empty(shape, dtype=dtype)
+            buf = self._buffers[(name, slot)] = np.empty(shape, dtype=dtype)
         return buf
 
-    def _nearest(self, volume: Volume, a1, dp, x1, keep: np.ndarray) -> np.ndarray:
+    def _nearest(self, volume: Volume, a1, dp, x1, keep: np.ndarray, slot: int) -> np.ndarray:
         """Gather the nearest voxel for the whole grid; samples outside the volume are cleared in keep."""
         grid = keep.shape
-        coord = self._buffer("coord", grid, np.float64)
-        flat = self._buffer("flat", grid, np.float64)
-        index = self._buffer("index", grid, np.intp)
+        coord = self._buffer("coord", slot, grid, np.float64)
+        flat = self._buffer("flat", slot, grid, np.float64)
+        index = self._buffer("index", slot, grid, np.intp)
         for axis, size in enumerate(volume.shape):
             np.multiply(x1, dp[:, axis, None], out=coord)
             coord += a1[:, axis, None]
