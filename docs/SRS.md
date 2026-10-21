@@ -58,6 +58,8 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 | D14 | NRRD axis order | pynrrd with `index_order='F'` gives `[x][y][z]`. The array is made C-contiguous once. |
 | D15 | Anisotropic voxel spacing | Ignored in voxel space. Only `--world` takes spacing into account. |
 | D16 | Meaning of "fps" | Projection only, as in NFR1. |
+| D17 | Real data is often signed (MRHead is int16) but the assignment specifies unsigned values | Signed 8/16/32-bit data is cast to the unsigned type of the same width. If it has negative values (CT), the minimum is subtracted first and kept as `value_offset`. Floats and 64-bit types are rejected. |
+| D18 | Both rails must advance in the same number of steps when the plane is slightly non-isosceles (within tolerance or `--force`) | `v1 = (B1-A1)/L` and `v2 = (B2-A2)/L` with `L = |B1-A1|`. For an exact isosceles plane both are unit vectors. |
 
 ## 6. Assumptions to confirm with the lecturer
 - A1. CSV points are voxel indices (D1).
