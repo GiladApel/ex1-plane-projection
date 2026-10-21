@@ -8,37 +8,37 @@ Projection time only (plane in, matrix out). Numba runs use 100 planes, NumPy ru
 
 | Backend | Sampling | dtype | Planes | Median fps | p95 ms | Slowest frame fps |
 |---|---|---|---|---|---|---|
-| numba | nearest | uint8 | oblique | 1009 | 1.67 | 446 |
-| numba | trilinear | uint8 | oblique | 387 | 3.99 | 218 |
-| numba | nearest | uint8 | axis | 1463 | 1.28 | 539 |
-| numba | trilinear | uint8 | axis | 579 | 2.17 | 382 |
-| numba | nearest | uint16 | oblique | 808 | 1.89 | 465 |
-| numba | trilinear | uint16 | oblique | 386 | 4.15 | 200 |
-| numba | nearest | uint16 | axis | 1430 | 1.40 | 582 |
-| numba | trilinear | uint16 | axis | 621 | 2.28 | 397 |
-| numba | nearest | uint32 | oblique | 581 | 4.54 | 72 |
-| numba | trilinear | uint32 | oblique | 290 | 5.76 | 146 |
-| numba | nearest | uint32 | axis | 1205 | 2.02 | 353 |
-| numba | trilinear | uint32 | axis | 611 | 2.66 | 216 |
-| numpy | nearest | uint8 | oblique | 53 | 30.14 | 32 |
-| numpy | trilinear | uint8 | oblique | 6 | 287.57 | 3 |
-| numpy | nearest | uint8 | axis | 110 | 13.48 | 68 |
-| numpy | trilinear | uint8 | axis | 7 | 181.74 | 4 |
-| numpy | nearest | uint16 | oblique | 66 | 18.34 | 54 |
-| numpy | trilinear | uint16 | oblique | 6 | 206.64 | 4 |
-| numpy | nearest | uint16 | axis | 110 | 16.23 | 48 |
-| numpy | trilinear | uint16 | axis | 8 | 172.52 | 5 |
-| numpy | nearest | uint32 | oblique | 60 | 22.90 | 35 |
-| numpy | trilinear | uint32 | oblique | 5 | 266.73 | 3 |
-| numpy | nearest | uint32 | axis | 112 | 17.31 | 56 |
-| numpy | trilinear | uint32 | axis | 6 | 325.72 | 3 |
+| numba | nearest | uint8 | oblique | 837 | 2.49 | 331 |
+| numba | trilinear | uint8 | oblique | 410 | 3.72 | 244 |
+| numba | nearest | uint8 | axis | 1946 | 1.19 | 501 |
+| numba | trilinear | uint8 | axis | 580 | 2.06 | 346 |
+| numba | nearest | uint16 | oblique | 708 | 3.16 | 195 |
+| numba | trilinear | uint16 | oblique | 358 | 4.45 | 206 |
+| numba | nearest | uint16 | axis | 1408 | 1.42 | 565 |
+| numba | trilinear | uint16 | axis | 664 | 2.19 | 426 |
+| numba | nearest | uint32 | oblique | 519 | 4.56 | 159 |
+| numba | trilinear | uint32 | oblique | 377 | 4.47 | 155 |
+| numba | nearest | uint32 | axis | 1255 | 2.40 | 401 |
+| numba | trilinear | uint32 | axis | 630 | 3.03 | 311 |
+| numpy | nearest | uint8 | oblique | 153 | 7.95 | 92 |
+| numpy | trilinear | uint8 | oblique | 22 | 54.62 | 17 |
+| numpy | nearest | uint8 | axis | 230 | 5.95 | 164 |
+| numpy | trilinear | uint8 | axis | 35 | 80.33 | 12 |
+| numpy | nearest | uint16 | oblique | 142 | 8.76 | 107 |
+| numpy | trilinear | uint16 | oblique | 25 | 55.33 | 12 |
+| numpy | nearest | uint16 | axis | 237 | 6.10 | 88 |
+| numpy | trilinear | uint16 | axis | 32 | 40.81 | 22 |
+| numpy | nearest | uint32 | oblique | 140 | 9.95 | 94 |
+| numpy | trilinear | uint32 | oblique | 16 | 90.20 | 10 |
+| numpy | nearest | uint32 | axis | 154 | 14.42 | 51 |
+| numpy | trilinear | uint32 | axis | 34 | 54.48 | 17 |
 
 ## Numba thread scaling (uint8, nearest, oblique)
 
 | Threads | Median fps | p95 ms |
 |---|---|---|
-| 1 | 170 | 8.37 |
-| 2 | 332 | 5.84 |
-| 4 | 456 | 4.20 |
-| 8 | 997 | 1.29 |
-| 16 | 1052 | 1.34 |
+| 1 | 169 | 8.34 |
+| 2 | 366 | 5.01 |
+| 4 | 648 | 2.87 |
+| 8 | 1000 | 1.49 |
+| 16 | 500 | 3.82 |
