@@ -54,7 +54,7 @@ Video content is checked by decoding the mp4 and comparing frame counts, sizes a
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs the default test suite on Python 3.10 to 3.14, each with and without Numba installed. The "without Numba" runs prove the fallback path; the equivalence tests then skip the Numba parts automatically.
+`.github/workflows/ci.yml` runs the default test suite on Python 3.10 to 3.14, each with and without Numba installed. The "without Numba" runs prove the fallback path; the equivalence tests then skip the Numba parts automatically. A separate job runs `ruff check .` (style, bugbear and simplification rules) and `mypy` (type check of `src/`); both are clean and are configured in `pyproject.toml`.
 
 ## Coverage and its limits
 
@@ -74,5 +74,7 @@ Statement coverage of the package is 89 percent (`pytest --cov=projection`). Two
 pytest                 # 187 tests, about 15 seconds
 pytest -m slow         # performance tests, needs a few seconds and about 150 MB of memory
 pytest --cov=projection --cov-report=term-missing
+ruff check .           # lint
+mypy                   # type check
 python scripts/bench.py --size 500 --backend numba numpy --interp nearest trilinear
 ```

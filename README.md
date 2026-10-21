@@ -118,4 +118,4 @@ The assignment leaves three points open; the choices below are documented in [do
 pytest                 # 187 fast tests
 pytest -m slow         # performance tests (500^3 volume)
 ```
-CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed.
+CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed, plus `ruff check .` and `mypy`.
