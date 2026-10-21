@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 
@@ -83,11 +83,11 @@ def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool) -> Pla
         if len(values) != 3:
             raise InvalidInputError(f"{path}:{line}: expected 3 values (x, y, z) per point, got {len(values)}")
         points.append(values)
-    points = np.array(points)
+    corners = np.array(points)
     try:
         if to_voxel is not None:
-            points = to_voxel(points)
-        return plane_from_points(points, force=force)
+            corners = to_voxel(corners)
+        return plane_from_points(corners, force=force)
     except InvalidInputError as exc:
         raise InvalidInputError(f"{path}:{first_line}: {exc}") from exc
 

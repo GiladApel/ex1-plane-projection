@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 import numpy as np
 
@@ -43,7 +43,7 @@ class Triangle(Plane):
     """Isosceles triangle (a, b, c) with |ab| = |ac|; the apex is a."""
 
     def __init__(self, a, b, c, force: bool = False) -> None:
-        a, b, c = (_as_point(p, n) for p, n in zip((a, b, c), "abc"))
+        a, b, c = (_as_point(p, n) for p, n in zip((a, b, c), "abc", strict=True))
         ab, ac = b - a, c - a
         dab, dac = np.linalg.norm(ab), np.linalg.norm(ac)
         _check_edge(dab, "ab")
@@ -58,7 +58,7 @@ class Trapezoid(Plane):
     """Isosceles trapezoid (a1, b, a2, c): rail 1 is a1 -> b, rail 2 is a2 -> c, |a1 b| = |a2 c|."""
 
     def __init__(self, a1, b, a2, c, force: bool = False) -> None:
-        a1, b, a2, c = (_as_point(p, n) for p, n in zip((a1, b, a2, c), ("a'", "b", "a''", "c")))
+        a1, b, a2, c = (_as_point(p, n) for p, n in zip((a1, b, a2, c), ("a'", "b", "a''", "c"), strict=True))
         rail1, rail2 = b - a1, c - a2
         d1, d2 = np.linalg.norm(rail1), np.linalg.norm(rail2)
         _check_edge(d1, "a'b")
@@ -73,18 +73,19 @@ class Trapezoid(Plane):
         triple = abs(np.dot(top, np.cross(rail1, c - a1)))
         if triple > REL_TOL * top_len * d1 * np.linalg.norm(c - a1):
             raise InvalidInputError("trapezoid points are not coplanar")
-        if top_len > 0 and bottom_len > 0:
-            if np.linalg.norm(np.cross(top, bottom)) > REL_TOL * top_len * bottom_len:
-                raise InvalidInputError("trapezoid parallel sides a'a'' and bc are not parallel")
+        if top_len > 0 and bottom_len > 0 and np.linalg.norm(np.cross(top, bottom)) > REL_TOL * top_len * bottom_len:
+            raise InvalidInputError("trapezoid parallel sides a'a'' and bc are not parallel")
         super().__init__(a1, b, a2, c)
 
 
-def plane_from_points(points: Sequence[Sequence[float]], force: bool = False) -> Plane:
+def plane_from_points(points: Sequence[Sequence[float]] | np.ndarray, force: bool = False) -> Plane:
     """Build a Triangle from 3 points or a Trapezoid from 4 points (order a', b, a'', c)."""
     if len(points) == 3:
-        return Triangle(*points, force=force)
+        a, b, c = points
+        return Triangle(a, b, c, force=force)
     if len(points) == 4:
-        return Trapezoid(*points, force=force)
+        a1, b, a2, c = points
+        return Trapezoid(a1, b, a2, c, force=force)
     raise InvalidInputError(f"a plane needs 3 or 4 points, got {len(points)}")
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import imageio.v2 as imageio
 import numpy as np
@@ -15,7 +16,7 @@ class Mp4Writer:
         self._path = str(path)
         self._fps = fps
         self._shape = (height, width)
-        self._writer = None
+        self._writer: Any = None
         self.frames = 0
 
     def __enter__(self) -> Mp4Writer:
