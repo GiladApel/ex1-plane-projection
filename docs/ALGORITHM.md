@@ -32,7 +32,7 @@ for each row y in 0 .. H-1:                          # independent rows, paralle
     a2  = A2 + y * v2
     d12 = |a2 - a1|
     dp  = (a2 - a1) / d12   if d12 > 0 else (0,0,0)
-    off = W/2 - d12/2                                # centers the row
+    off = (W-1)/2 - d12/2                            # centers the row, D5
     for x1 in 0 .. floor(d12):
         p = a1 + x1 * dp                             # closed form, D7
         x = floor(off + x1 + 0.5)                    # D5, D8
@@ -58,6 +58,8 @@ v = sum over the 8 corners (di, dj, dk in {0,1}) of
     where w(0,f) = 1 - f, w(1,f) = f, and M_or_0 is 0 outside the volume
 E[y, x] = floor(v + 0.5)
 ```
+
+The corners are summed in the fixed order `di` outermost, `dk` innermost, and each weight is `wx * wy * wz` evaluated left to right. Every backend uses the same order so floating-point sums are identical.
 
 ## 4. Backends
 
