@@ -30,6 +30,18 @@ python Ex0.py file.nrrd file.csv file.mp4 [--fps 15] [--interp nearest|trilinear
                                           [--world] [--force]
 ```
 
+CSV formats (both give frames in row order, see SRS FR2):
+```
+# plane per row: 9 numbers = triangle (a, b, c), 12 numbers = trapezoid (a', b, a'', c); one frame per row
+128,5,60, 28,250,60, 228,250,60
+
+# point per row: 3 or 4 rows of x,y,z = one plane, one frame
+128,5,60
+28,250,60
+228,250,60
+```
+Coordinates are voxel indices; `--world` reads them as NRRD world coordinates.
+
 Setup:
 ```
 python -m venv .venv
@@ -45,11 +57,20 @@ Tests: `pytest` (fast tests), `pytest -m slow` (performance).
 |---|---|
 | Problem and scope | this README |
 | SRS | [docs/SRS.md](docs/SRS.md) |
+| Design (classes, decisions) | [docs/DESIGN.md](docs/DESIGN.md) |
 | Main algorithm | [docs/ALGORITHM.md](docs/ALGORITHM.md) |
 | NRRD data set | [data/MANIFEST.md](data/MANIFEST.md) |
 | Testing strategy | `docs/TESTING.md` (Phase 7) |
 | Demo | [Ex0.py](Ex0.py) |
 | Experiment | [docs/EXPERIMENT.md](docs/EXPERIMENT.md) |
+
+## Assumptions to confirm
+
+The assignment leaves three points open; the choices below are documented in [docs/SRS.md](docs/SRS.md) section 6 and are easy to change.
+
+1. CSV coordinates are voxel indices (`--world` switches to NRRD world coordinates).
+2. A CSV is either one plane per row (9 or 12 numbers) or 3 or 4 rows of 3 numbers forming one plane. Both are accepted.
+3. Nearest-neighbor sampling is the default reading of `v = M[p]`; trilinear is available with `--interp trilinear`.
 
 ## Status
 
