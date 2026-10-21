@@ -29,3 +29,15 @@ jobs:
         run: python -c "import importlib.util as u; print('numba installed:', u.find_spec('numba') is not None)"
       - name: Run tests
         run: pytest -q --cov=projection --cov-report=term
+
+  lint:
+    runs-on: ubuntu-latest
+    name: ruff and mypy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,fast]"
+      - run: ruff check .
+      - run: mypy
