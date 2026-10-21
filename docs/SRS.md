@@ -33,7 +33,7 @@ Project a 3D volume onto arbitrary planes efficiently and render the sequence of
 | NFR2 | Correctness: the fast backends equal the reference backend exactly (nearest sampling). |
 | NFR3 | Robustness: invalid input never crashes with a traceback; it produces a one-line error and exit code 2. |
 | NFR4 | Maintainability: each backend and sampler sits behind an interface; core functions carry English pseudo-code in their docstrings. |
-| NFR5 | Portability: written to run on Python 3.10 or newer (developed and tested on 3.14; the CI matrix covers the older versions); works without Numba, using the slower NumPy fallback. |
+| NFR5 | Portability: runs on Python 3.10 to 3.14 (CI passes on every version in that range, with and without Numba); works without Numba, using the slower NumPy fallback. |
 | NFR6 | Determinism: same inputs produce the same output on every run and backend. |
 
 ## 5. Design decisions
