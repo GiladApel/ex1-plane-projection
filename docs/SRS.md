@@ -29,7 +29,7 @@ Project a 3D volume onto arbitrary planes efficiently and render the sequence of
 
 | ID | Requirement |
 |---|---|
-| NFR1 | Performance: projection of a 500^3 volume at >= 100 fps (hard minimum 30 fps), measured as plane in, matrix out, excluding IO, normalization, encoding and JIT warm-up. |
+| NFR1 | Performance: with nearest sampling, projection of a 500^3 volume at >= 100 fps on the Numba backend and >= 30 fps on the NumPy fallback, measured as plane in, matrix out, excluding IO, normalization, encoding and JIT warm-up. Trilinear sampling is optional and only held to >= 100 fps on Numba. |
 | NFR2 | Correctness: the fast backends equal the reference backend exactly (nearest sampling). |
 | NFR3 | Robustness: invalid input never crashes with a traceback; it produces a one-line error and exit code 2. |
 | NFR4 | Maintainability: each backend and sampler sits behind an interface; core functions carry English pseudo-code in their docstrings. |
@@ -66,8 +66,17 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 - A2. One CSV row is one plane and one frame.
 - A3. Nearest neighbor satisfies "`v = M[p]`".
 
-## 7. Early feasibility result
-A throwaway Numba spike on a random 500^3 uint8 volume with oblique planes (560x501 frames) measured a median of 0.47 ms per frame (about 2100 fps) on an i7-13620H with 16 threads. Real figures will come from `scripts/bench.py`. An H.264 mp4 was written successfully via imageio-ffmpeg.
+## 7. Measured performance
+`python scripts/bench.py --frames 100 --interp nearest trilinear`: random 500^3 uint8 volume, 500x500 frames, 100 random oblique planes through the center, Intel i7-13620H (16 threads), Python 3.14.
+
+| Backend | Sampling | Median fps | p95 ms | Slowest frame fps |
+|---|---|---|---|---|
+| numba | nearest | 1182 | 1.39 | 563 |
+| numba | trilinear | 492 | 3.16 | 236 |
+| numpy | nearest | 96 | 15.4 | 49 |
+| numpy | trilinear | 8 | 160.7 | 6 |
+
+The NumPy nearest backend needed work to reach this: a first version that gathered only the kept samples with fancy indexing ran at 27 fps, below the 30 fps minimum; computing the dense grid with cached in-place buffers brought it to 96 fps. NumPy trilinear is correct but slow and is not required to meet the target.
 
 ## 8. Traceability
 Each FR and NFR maps to tests in `docs/TESTING.md` (Phase 7).
