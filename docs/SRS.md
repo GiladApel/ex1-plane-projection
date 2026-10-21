@@ -67,16 +67,19 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 - A3. Nearest neighbor satisfies "`v = M[p]`".
 
 ## 7. Measured performance
-`python scripts/bench.py --frames 100 --interp nearest trilinear`: random 500^3 uint8 volume, 500x500 frames, 100 random oblique planes through the center, Intel i7-13620H (16 threads), Python 3.14.
+Full matrix (dtype, sampling, plane orientation, thread scaling): [experiment/benchmark.md](experiment/benchmark.md), produced by `python scripts/bench_matrix.py`. Summary for a random 500^3 uint8 volume, 500x500 frames, oblique planes through the center, Intel i7-13620H (16 threads), Python 3.14:
 
-| Backend | Sampling | Median fps | p95 ms | Slowest frame fps |
-|---|---|---|---|---|
-| numba | nearest | 1182 | 1.39 | 563 |
-| numba | trilinear | 492 | 3.16 | 236 |
-| numpy | nearest | 96 | 15.4 | 49 |
-| numpy | trilinear | 8 | 160.7 | 6 |
+| Backend | Sampling | Median fps | Slowest frame fps |
+|---|---|---|---|
+| numba | nearest | about 1000 | about 450 |
+| numba | trilinear | about 390 | about 220 |
+| numpy | nearest | 53 to 96 across runs, typically about 70 | 30 to 47 |
+| numpy | trilinear | about 6 | 3 |
 
-The NumPy nearest backend needed work to reach this: a first version that gathered only the kept samples with fancy indexing ran at 27 fps, below the 30 fps minimum; computing the dense grid with cached in-place buffers brought it to 96 fps. NumPy trilinear is correct but slow and is not required to meet the target.
+- Numba meets the 100 fps target by a factor of 10 and stays above it even on a single thread (170 fps).
+- NumPy nearest meets the 30 fps minimum on median but not the 100 fps target, and its slowest frames come close to 30 fps. Run-to-run variation is large, so it is stated as a range.
+- NumPy trilinear is correct but is not expected to reach the target (NFR1 only requires it on Numba).
+- A first NumPy version that gathered only the kept samples with fancy indexing ran at 27 fps; computing the dense grid with cached buffers roughly doubled that.
 
 ## 8. Traceability
 Each FR and NFR maps to tests in `docs/TESTING.md` (Phase 7).

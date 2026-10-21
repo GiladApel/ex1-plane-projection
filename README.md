@@ -46,11 +46,11 @@ Tests: `pytest` (fast tests), `pytest -m slow` (performance).
 | Problem and scope | this README |
 | SRS | [docs/SRS.md](docs/SRS.md) |
 | Main algorithm | [docs/ALGORITHM.md](docs/ALGORITHM.md) |
-| NRRD data set | `data/MANIFEST.md` (Phase 6) |
+| NRRD data set | [data/MANIFEST.md](data/MANIFEST.md) |
 | Testing strategy | `docs/TESTING.md` (Phase 7) |
-| Demo | `Ex0.py` (Phase 5) |
-| Experiment | `docs/EXPERIMENT.md` (Phase 6) |
+| Demo | [Ex0.py](Ex0.py) |
+| Experiment | [docs/EXPERIMENT.md](docs/EXPERIMENT.md) |
 
 ## Status
 
-Phase 1 (specification) complete. Implementation follows in gated phases.
+Specification, implementation, demo, data set and experiments are complete. Testing strategy document and CI are the remaining items.
