@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plane-projection"
+version = "0.1.0"
+description = "Project a 3D NRRD volume onto arbitrary planes"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pynrrd", "imageio", "imageio-ffmpeg"]
+
+[project.optional-dependencies]
+fast = ["numba"]
+dev = ["pytest", "pytest-cov", "hypothesis"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["slow: long-running performance tests"]
+addopts = "-m 'not slow'"
