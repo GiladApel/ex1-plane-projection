@@ -29,7 +29,7 @@ Project a 3D volume onto arbitrary planes efficiently and render the sequence of
 
 | ID | Requirement |
 |---|---|
-| NFR1 | Performance: with nearest sampling, projection of a 500^3 volume at >= 100 fps on the Numba backend and >= 30 fps on the NumPy fallback, measured as plane in, matrix out, excluding IO, normalization, encoding and JIT warm-up. Trilinear sampling is optional and only held to >= 100 fps on Numba. |
+| NFR1 | Performance: with nearest sampling, projection of a 500^3 volume at >= 100 fps median on both the Numba and the NumPy backend (hard minimum 30 fps), measured on the 16-thread reference machine; the NumPy backend uses up to 4 threads, so machines with fewer cores will see less (section 7) as plane in, matrix out, excluding IO, normalization, encoding and JIT warm-up. Trilinear sampling is optional and only held to >= 100 fps on Numba. |
 | NFR2 | Correctness: the fast backends equal the reference backend exactly (nearest sampling). |
 | NFR3 | Robustness: invalid input never crashes with a traceback; it produces a one-line error and exit code 2. |
 | NFR4 | Maintainability: each backend and sampler sits behind an interface; core functions carry English pseudo-code in their docstrings. |
@@ -71,15 +71,15 @@ Full matrix (dtype, sampling, plane orientation, thread scaling): [experiment/be
 
 | Backend | Sampling | Median fps | Slowest frame fps |
 |---|---|---|---|
-| numba | nearest | about 1000 | about 450 |
-| numba | trilinear | about 390 | about 220 |
-| numpy | nearest | 53 to 96 across runs, typically about 70 | 30 to 47 |
-| numpy | trilinear | about 6 | 3 |
+| numba | nearest | about 840 (1950 for axis-aligned planes) | about 330 |
+| numba | trilinear | about 410 | about 240 |
+| numpy | nearest | about 150 (140 to 240 across dtypes and plane orientations) | about 90 |
+| numpy | trilinear | about 22 | 17 |
 
-- Numba meets the 100 fps target by a factor of 10 and stays above it even on a single thread (170 fps).
-- NumPy nearest meets the 30 fps minimum on median but not the 100 fps target, and its slowest frames come close to 30 fps. Run-to-run variation is large, so it is stated as a range.
-- NumPy trilinear is correct but is not expected to reach the target (NFR1 only requires it on Numba).
-- A first NumPy version that gathered only the kept samples with fancy indexing ran at 27 fps; computing the dense grid with cached buffers roughly doubled that.
+- Numba meets the 100 fps target by a factor of 8 or more and stays above it even on a single thread (169 fps).
+- NumPy nearest meets the 100 fps target on median on this machine, with its slowest frames at 50 to 160 fps. Run-to-run variation is large (about 20 percent), so values are approximate.
+- NumPy trilinear is correct but does not reach the target (16 to 35 fps); NFR1 only requires trilinear on Numba.
+- NumPy history: a first version gathered only the kept samples with fancy indexing and ran at 27 fps; computing the dense grid with cached buffers gave about 70 fps; splitting the frame into row chunks on 4 threads gave about 150 fps. Without chunking the result is identical, only slower; chunking never changes the output (tested for 1, 2, 3 and 7 threads).
 
 ## 8. Traceability
 Each FR and NFR maps to tests in `docs/TESTING.md` (Phase 7).

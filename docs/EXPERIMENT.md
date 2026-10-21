@@ -28,13 +28,13 @@ All commands are run from the repository root after `python scripts/download_dat
 | 3. MRHead rotation, trilinear | 386 x 386 | 821 | 113 |
 | 4. CTChest rotation | 740 x 740 | 716 | 33 |
 
-The projection is far above the 100 fps target in every run. The end-to-end rate is limited by H.264 encoding, which grows with frame area; it falls to 33 fps only for the 740 x 740 CT frames. Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md](experiment/benchmark.md): Numba reaches about 1000 fps with nearest sampling and about 390 fps with trilinear, and still exceeds 100 fps on a single thread (170 fps). The NumPy fallback reaches 53 to 96 fps with nearest sampling.
+The projection is far above the 100 fps target in every run. The end-to-end rate is limited by H.264 encoding, which grows with frame area; it falls to 33 fps only for the 740 x 740 CT frames. Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md](experiment/benchmark.md): Numba reaches about 840 fps with nearest sampling on oblique planes and about 410 fps with trilinear, and still exceeds 100 fps on a single thread (169 fps). The NumPy fallback reaches about 150 fps with nearest sampling and 16 to 35 fps with trilinear.
 
 **Findings from the benchmark.**
-- Axis-aligned planes are faster than oblique ones (Numba uint8: 1463 vs 1009 fps; NumPy: 110 vs 53). The likely cause (not measured directly) is memory locality: axis-aligned samples walk the volume along regularly strided lines, while oblique samples jump across the 125 MB volume and miss the processor cache.
-- Larger voxel types are slower only for oblique planes (Numba nearest: 1009 fps for uint8, 808 for uint16, 581 for uint32), probably the same memory effect, since the volume is 125, 250 and 500 MB.
-- Trilinear costs 2.5 to 3 times more than nearest on Numba, because it reads 8 voxels per sample.
-- Threads: 170, 332, 456, 997, 1052 fps for 1, 2, 4, 8, 16 threads. Scaling is close to linear up to 8 threads and flat beyond. This CPU has 6 performance and 4 efficiency cores (16 threads); the flat part is probably memory bandwidth and the shared cores, but this was not investigated.
+- Axis-aligned planes are faster than oblique ones (Numba uint8 nearest: 1946 vs 837 fps; NumPy: 230 vs 153). The likely cause (not measured directly) is memory locality: axis-aligned samples walk the volume along regularly strided lines, while oblique samples jump across the 125 MB volume and miss the processor cache.
+- Larger voxel types are slower only for oblique planes (Numba nearest: 837 fps for uint8, 708 for uint16, 519 for uint32), probably the same memory effect, since the volume is 125, 250 and 500 MB.
+- Trilinear costs 2 to 3.4 times more than nearest on Numba, because it reads 8 voxels per sample.
+- Numba threads: 169, 366, 648, 1000, 500 fps for 1, 2, 4, 8, 16 threads. Scaling is close to linear up to 8 threads. In an earlier run 16 threads gave 1052 fps, so the drop at 16 is partly run-to-run noise from oversubscribing this CPU (6 performance and 4 efficiency cores, 16 threads); this was not investigated further.
 
 **Nearest versus trilinear.** Comparing frame 20 of runs 2 and 3 (an oblique plane), nearest sampling shows blocky, stair-stepped tissue edges and trilinear is visibly smoother; 31% of the pixels differ, by 2 gray levels on average. The price is the 2.5x lower projection speed, which is still more than 800 fps.
 
@@ -42,5 +42,5 @@ The projection is far above the 100 fps target in every run. The end-to-end rate
 
 - **CT contrast.** The CTChest video is pale. The brightness window uses the 1st and 99th percentile of the whole volume (SRS D12); this volume has a large block of padding at its minimum value and the loader shifted the Hounsfield values up by 3024, so air, soft tissue and bone all land in the upper part of the range. A tissue-specific window (for example lung or soft tissue) would give better contrast but needs user-supplied bounds, which are out of scope.
 - **Anisotropic voxels.** The CTChest frames look flattened vertically because the slice spacing is 2.5 mm against 0.76 mm in plane. Projection works in voxel space by design (SRS D15).
-- **NumPy fallback speed.** Without Numba, nearest sampling runs at 53 to 96 fps (above the 30 fps minimum, below the 100 fps target) and trilinear at about 6 fps.
+- **NumPy fallback speed.** Without Numba, nearest sampling runs at about 150 fps on this machine because the frame is split across 4 threads; with fewer cores it will be slower. Trilinear runs at 16 to 35 fps, below the 30 fps minimum in the worst case, which is why trilinear is only required on Numba.
 - **Single machine.** All timings come from one laptop; results on other hardware will differ, especially the Numba thread scaling.

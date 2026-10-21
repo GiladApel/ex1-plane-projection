@@ -94,6 +94,8 @@ classDiagram
 
 **The same arithmetic in three places, tied together by tests.** Bit-exact equality needs the same floating-point operations in the same order, so the reference, NumPy and Numba code mirror each other line for line (documented in ALGORITHM.md, including the trilinear summation order). Hypothesis tests compare all three on random planes, every dtype, both samplers, and rounding edge cases, so any drift fails immediately.
 
+**Threads inside the NumPy backend.** Large frames are split into row chunks that run on a thread pool, because NumPy releases the GIL inside array operations. Each chunk does the same arithmetic in the same order, so the output never depends on the thread count (tested). Throughput stops improving at about 4 threads because the indexing steps hold the GIL, so 4 is the default cap.
+
 **Immutable value objects.** `Volume` is frozen with a read-only array, and `Rails` is frozen. Backends cannot corrupt the input, and the volume can be shared safely.
 
 **Fail fast.** The CLI loads the volume, parses and validates every plane, builds the canvas and intensity window, and only then opens the video file. A bad row 500 of the CSV is reported before any frame is rendered.
