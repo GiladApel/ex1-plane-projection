@@ -46,7 +46,7 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 | D2 | `M[p]` with a float `p` | Nearest neighbor by default. Trilinear selectable. |
 | D3 | `a1` is incremented before first use, so the apex is never sampled and the last row overshoots the base | `a1 = A1 + y*v1` for `y = 0..floor(Dab)`. The image covers apex through base. Deviation from the assignment. |
 | D4 | Output size `Dab*Dbc` is not an integer, and `x1 <= d12` reaches `x = Dbc` | `H = floor(Dab) + 1`, `W = floor(Dbc) + 1`. |
-| D5 | `x = Dbc/2 - d12/2 + x1` is a float, and with `W = floor(Dbc)+1` it would shift the widest row half a pixel right and clip its last pixel | `off = (W-1)/2 - d12/2`, `x = floor(off + x1 + 0.5)`. The widest row maps `x1` to `x` exactly, and consecutive `x1` map to consecutive `x`, so rows have no holes. |
+| D5 | `x = Dbc/2 - d12/2 + x1` is a float, and `Dbc` is the assignment's (non-integer) width, not the integer number of columns we allocate | `off = (W-1)/2 - d12/2`, `x = floor(off + x1 + 0.5)`. With `W = floor(Dbc)+1` the widest row maps `x1` to `x` exactly, consecutive `x1` map to consecutive `x` (no holes), and the center equals the assignment's `Dbc/2` when `Dbc` is an integer (less than one pixel apart otherwise). |
 | D6 | `E[x][y]` | Stored as `E[y][x]` (row-major image). |
 | D7 | `p = p + dp` accumulates floating-point error | Closed form `p = a1 + x1*dp` in float64 in every backend. Deviation from the assignment, needed for exact cross-backend equality. |
 | D8 | Rounding rule | `floor(v + 0.5)` everywhere. Not banker's rounding. |
