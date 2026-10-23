@@ -82,6 +82,7 @@ End-to-end speed including mp4 encoding: 33 to 311 fps depending on frame size.
 - `Projector` is the extension point. `ReferenceProjector` is the literal algorithm and the oracle; `NumpyProjector` and `NumbaProjector` are tested for bit-identical output against it with Hypothesis.
 - All input is validated before any output is written.
 - Class diagram and decisions: [docs/DESIGN.md](docs/DESIGN.md).
+- Figures of the algorithm (the plane in the volume, the output image, and our changes to the assignment's pseudo-code): [docs/ALGORITHM.md](docs/ALGORITHM.md).
 
 ## Assignment checklist
 
