@@ -20,7 +20,7 @@
 | End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, point-per-row CSV with one or several planes, `--world`, `--force`, error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
 | Performance | 500^3 uint8, 100 random oblique planes: Numba and NumPy each at least 100 fps median (run with `pytest -m slow`) | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-189 tests: 187 in the default run and 2 slow ones.
+205 tests: 203 in the default run and 2 slow ones.
 
 ## Demo testing
 
@@ -58,7 +58,7 @@ Video content is checked by decoding the mp4 and comparing frame counts, sizes a
 
 ## Coverage and its limits
 
-Statement coverage of the package is 89 percent (`pytest --cov=projection`). Two caveats:
+Statement coverage of the package is 90 percent (`pytest --cov=projection`). Two caveats:
 - `kernels_numba.py` shows 11 percent because compiled code is invisible to the coverage tool. It is verified by the equivalence tests instead, which compare its output with the reference.
 - The remaining uncovered lines are error branches that need unusual files (for example a singular direction matrix).
 
@@ -71,7 +71,7 @@ Statement coverage of the package is 89 percent (`pytest --cov=projection`). Two
 ## Running
 
 ```
-pytest                 # 187 tests, about 15 seconds
+pytest                 # 203 tests, about 15 seconds
 pytest -m slow         # performance tests, needs a few seconds and about 150 MB of memory
 pytest --cov=projection --cov-report=term-missing
 ruff check .           # lint
