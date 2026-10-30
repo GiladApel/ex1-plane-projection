@@ -23,12 +23,12 @@ All commands are run from the repository root after `python scripts/download_dat
 
 | Run | Frame size | Projection fps | End-to-end fps (with mp4 encoding) |
 |---|---|---|---|
-| 1. MRHead sweep | 256 x 130 | 830 | 311 |
-| 2. MRHead rotation | 386 x 386 | 1774 | 108 |
-| 3. MRHead rotation, trilinear | 386 x 386 | 821 | 113 |
-| 4. CTChest rotation | 740 x 740 | 716 | 33 |
+| 1. MRHead sweep | 256 x 130 | 988 | 393 |
+| 2. MRHead rotation | 386 x 386 | 1540 | 137 |
+| 3. MRHead rotation, trilinear | 386 x 386 | 890 | 132 |
+| 4. CTChest rotation | 740 x 740 | 777 | 46 |
 
-The projection is far above the 100 fps target in every run. The end-to-end rate is limited by H.264 encoding, which grows with frame area; it falls to 33 fps only for the 740 x 740 CT frames. Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md](experiment/benchmark.md): Numba reaches about 840 fps with nearest sampling on oblique planes and about 410 fps with trilinear, and still exceeds 100 fps on a single thread (169 fps). The NumPy fallback reaches about 150 fps with nearest sampling and 16 to 35 fps with trilinear.
+The projection is far above the 100 fps target in every run. The end-to-end rate is limited by H.264 encoding, which grows with frame area; it falls to 46 fps only for the 740 x 740 CT frames. Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md](experiment/benchmark.md): Numba reaches about 840 fps with nearest sampling on oblique planes and about 410 fps with trilinear, and still exceeds 100 fps on a single thread (169 fps). The NumPy fallback reaches about 150 fps with nearest sampling and 16 to 35 fps with trilinear.
 
 **Findings from the benchmark.**
 - Axis-aligned planes are faster than oblique ones (Numba uint8 nearest: 1946 vs 837 fps; NumPy: 230 vs 153). The likely cause (not measured directly) is memory locality: axis-aligned samples walk the volume along regularly strided lines, while oblique samples jump across the 125 MB volume and miss the processor cache.
@@ -40,7 +40,7 @@ The projection is far above the 100 fps target in every run. The end-to-end rate
 
 ## Limitations observed
 
-- **CT contrast.** The CTChest video is pale. The brightness window uses the 1st and 99th percentile of the whole volume (SRS D12); this volume has a large block of padding at its minimum value and the loader shifted the Hounsfield values up by 3024, so air, soft tissue and bone all land in the upper part of the range. A tissue-specific window (for example lung or soft tissue) would give better contrast but needs user-supplied bounds, which are out of scope.
+- **CT contrast.** In the first version the CTChest video was pale: 21% of the volume is padding at the minimum value (-3024 HU, shifted to 0 by the loader), which pulled the 1st percentile of the brightness window down to the padding, so air, soft tissue and bone all landed in the upper part of the gray range. The window now ignores the minimum value when it covers at least 5% of the volume (SRS D12): for CTChest the window moved from 0..3327 to 2014..3372, so air is black and the lungs are visible. MRHead hardly changes (0..134 to 1..136). Soft tissue still appears light gray, since one global window covers air to bone; a tissue-specific window (lung or soft tissue) would need user-supplied bounds, which are out of scope.
 - **Anisotropic voxels.** The CTChest frames look flattened vertically because the slice spacing is 2.5 mm against 0.76 mm in plane. Projection works in voxel space by design (SRS D15).
 - **NumPy fallback speed.** Without Numba, nearest sampling runs at about 150 fps on this machine because the frame is split across 4 threads; with fewer cores it will be slower. Trilinear runs at 16 to 35 fps, below the 30 fps minimum in the worst case, which is why trilinear is only required on Numba.
 - **Single machine.** All timings come from one laptop; results on other hardware will differ, especially the Numba thread scaling.

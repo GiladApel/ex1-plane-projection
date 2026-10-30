@@ -78,7 +78,7 @@ Demo videos made with `Ex0.py` (details in [docs/EXPERIMENT.md](docs/EXPERIMENT.
 [MRHead rotation](docs/experiment/mrhead_rotate.mp4),
 [MRHead rotation, trilinear](docs/experiment/mrhead_rotate_trilinear.mp4),
 [CTChest rotation](docs/experiment/ctchest_rotate.mp4).
-End-to-end speed including mp4 encoding: 33 to 311 fps depending on frame size.
+End-to-end speed including mp4 encoding: 46 to 393 fps depending on frame size.
 
 ## Design in short
 
@@ -113,7 +113,7 @@ The assignment leaves three points open; the choices below are documented in [do
 
 ## Known limitations
 
-- The brightness window is global per volume, so CT data with large padded regions renders with low contrast (see EXPERIMENT.md).
+- The brightness window is global per volume (padding at the minimum value is ignored), so soft tissue in CT shows with moderate contrast; tissue-specific windows are out of scope (see EXPERIMENT.md).
 - Projection works in voxel space; anisotropic voxel spacing is only used by `--world`.
 - All timings come from one machine.
 

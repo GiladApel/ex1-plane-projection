@@ -9,6 +9,7 @@ from .geometry import Plane
 from .volume import Volume
 
 _MAX_WINDOW_SAMPLES = 2_000_000
+_BACKGROUND_SHARE = 0.05
 
 
 @dataclass(frozen=True)
@@ -22,12 +23,23 @@ class IntensityWindow:
     def from_volume(cls, volume: Volume, low_percentile: float = 1.0, high_percentile: float = 99.0) -> IntensityWindow:
         """Pseudo-code:
             1. take every step-th voxel so that at most ~2 million voxels remain
-            2. lo, hi = the low and high percentiles of that sample
-            3. if hi <= lo: hi = lo + 1
+            2. background = voxels equal to the sample minimum; if they are at least 5% of the sample and
+               other voxels remain, drop them (padding or air around the object, see SRS D12)
+            3. lo, hi = the low and high percentiles of what is left;
+               if hi <= lo there (for example a binary mask), use the whole sample instead
+            4. if hi <= lo: hi = lo + 1
         """
         flat = volume.flat
         step = max(1, flat.size // _MAX_WINDOW_SAMPLES)
-        lo, hi = np.percentile(flat[::step], [low_percentile, high_percentile])
+        sample = flat[::step]
+        candidates = [sample]
+        foreground = sample[sample > sample.min()]
+        if 0 < foreground.size <= (1.0 - _BACKGROUND_SHARE) * sample.size:
+            candidates.insert(0, foreground)
+        for values in candidates:
+            lo, hi = np.percentile(values, [low_percentile, high_percentile])
+            if hi > lo:
+                break
         return cls(float(lo), float(max(hi, lo + 1.0)))
 
     def apply(self, image: np.ndarray) -> np.ndarray:

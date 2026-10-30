@@ -25,6 +25,25 @@ def test_window_on_constant_volume_does_not_divide_by_zero():
     assert window.apply(np.full((2, 2), 7, dtype=np.uint8)).tolist() == [[0, 0], [0, 0]]
 
 
+def test_window_ignores_large_background_at_the_minimum():
+    data = np.zeros((10, 10, 10), dtype=np.uint16)
+    data[:, :, 5:] = synthetic.gradient((10, 10, 5), np.uint16) + 2000
+    window = IntensityWindow.from_volume(Volume(data))
+    assert window.lo >= 2000
+
+
+def test_window_keeps_a_small_minimum_share():
+    data = synthetic.gradient((100, 10, 10), np.uint8)
+    data[:3] = 0
+    window = IntensityWindow.from_volume(Volume(data))
+    assert window.lo == 0.0
+
+
+def test_window_on_a_binary_mask_maps_the_object_to_white():
+    window = IntensityWindow.from_volume(Volume(synthetic.sphere((20, 20, 20), np.uint8)))
+    assert (window.lo, window.hi) == (0.0, 255.0)
+
+
 def test_window_subsamples_large_volumes():
     volume = Volume(synthetic.gradient((255, 100, 100), np.uint8))
     window = IntensityWindow.from_volume(volume)
