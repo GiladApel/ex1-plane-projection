@@ -1,4 +1,9 @@
 """NumpyProjector and NumbaProjector must reproduce ReferenceProjector exactly."""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
 from hypothesis import HealthCheck, assume, given, settings
@@ -132,11 +137,20 @@ def test_make_projector_selection():
 def test_make_projector_falls_back_without_numba(monkeypatch):
     import projection
 
-    monkeypatch.setitem(__import__("sys").modules, "projection.kernels_numba", None)
+    monkeypatch.setitem(sys.modules, "projection.kernels_numba", None)
     monkeypatch.delattr(projection, "kernels_numba", raising=False)
     assert isinstance(make_projector("auto"), NumpyProjector)
     with pytest.raises(InvalidInputError, match="not installed"):
         make_projector("numba")
+
+
+def test_package_import_exposes_the_api_without_loading_numba():
+    code = (
+        "import sys, projection; assert set(projection.__all__) <= set(dir(projection)); "
+        "assert 'projection.kernels_numba' not in sys.modules and 'numba' not in sys.modules"
+    )
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent / "src")}
+    subprocess.run([sys.executable, "-c", code], check=True, env=env)
 
 
 @pytest.mark.parametrize("mode", MODES)

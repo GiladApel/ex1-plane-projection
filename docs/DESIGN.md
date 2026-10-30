@@ -29,7 +29,7 @@ flowchart LR
     SYN[synthetic.py] --> GEO
 ```
 
-Dependencies point one way: `geometry.py`, `volume.py`, `sampler.py` and `plane_gen.py` depend on nothing else in the package except small helpers (`errors.py`), so they can be understood and tested alone. `kernels_numba.py` is imported only when the Numba backend is created, so the package works without Numba installed.
+Dependencies point one way: `geometry.py`, `volume.py`, `sampler.py` and `plane_gen.py` depend on nothing else in the package except small helpers (`errors.py`), so they can be understood and tested alone. `kernels_numba.py` is imported only when the Numba backend is created, so the package works without Numba installed. The package root (`projection/__init__.py`) re-exports the public API (`Volume`, `load_nrrd`, `Triangle`, `Trapezoid`, `parse_planes`, `Projector` and its backends, `make_projector`, `Interpolation`, `InvalidInputError`) without importing Numba.
 
 ## Classes
 
