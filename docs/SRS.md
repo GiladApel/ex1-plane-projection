@@ -63,7 +63,7 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 
 ## 6. Assumptions to confirm with the lecturer
 - A1. CSV points are voxel indices (D1).
-- A2. A CSV row with 9 or 12 numbers is one plane and one frame; a file of 3 or 4 rows with 3 numbers each is one plane. Both layouts are supported, so this assumption only matters if the lecturer uses a third layout.
+- A2. A CSV row with 9 or 12 numbers is one plane and one frame; in a file of 3-number rows, every 3 rows are a triangle and every 4 rows a trapezoid, with blank lines between planes. Both layouts are supported, so this assumption only matters if the lecturer uses a third layout.
 - A3. Nearest neighbor satisfies "`v = M[p]`".
 
 ## 7. Measured performance
