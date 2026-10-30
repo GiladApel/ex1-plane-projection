@@ -89,6 +89,19 @@ def test_trapezoid_rejects_non_isosceles():
         Trapezoid((2, 0, 0), (0, 10, 0), (8, 0, 0), (10, 20, 0))
 
 
+def test_trapezoid_in_wrong_point_order_names_the_expected_order():
+    # a', a'', b, c instead of a', b, a'', c
+    with pytest.raises(InvalidInputError, match="isosceles.*expected point order a', b, a'', c"):
+        Trapezoid((2, 0, 0), (8, 0, 0), (0, 10, 0), (10, 10, 0))
+    with pytest.raises(InvalidInputError, match="not parallel.*expected point order"):
+        Trapezoid((2, 0, 0), (8, 0, 0), (0, 10, 0), (10, 10, 0), force=True)
+
+
+def test_triangle_isosceles_error_has_no_order_hint():
+    with pytest.raises(InvalidInputError, match=r"isosceles: equal edges are 10 and 6$"):
+        Triangle((0, 0, 0), (10, 0, 0), (0, 6, 0))
+
+
 def test_trapezoid_rejects_fully_degenerate():
     with pytest.raises(InvalidInputError, match="degenerate"):
         Trapezoid((0, 0, 0), (5, 0, 0), (0, 0, 0), (5, 0, 0))

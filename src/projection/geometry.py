@@ -10,6 +10,7 @@ from .errors import InvalidInputError
 
 REL_TOL = 1e-3
 COLLINEAR_TOL = 1e-6
+TRAPEZOID_ORDER = "expected point order a', b, a'', c, where a'b and a''c are the equal legs"
 
 
 @dataclass(frozen=True, eq=False)
@@ -63,7 +64,7 @@ class Trapezoid(Plane):
         d1, d2 = np.linalg.norm(rail1), np.linalg.norm(rail2)
         _check_edge(d1, "a'b")
         _check_edge(d2, "a''c")
-        _check_isosceles(d1, d2, force)
+        _check_isosceles(d1, d2, force, hint=TRAPEZOID_ORDER)
         top, bottom = a2 - a1, c - b
         top_len, bottom_len = np.linalg.norm(top), np.linalg.norm(bottom)
         if top_len == 0 and bottom_len == 0:
@@ -74,7 +75,7 @@ class Trapezoid(Plane):
         if triple > REL_TOL * top_len * d1 * np.linalg.norm(c - a1):
             raise InvalidInputError("trapezoid points are not coplanar")
         if top_len > 0 and bottom_len > 0 and np.linalg.norm(np.cross(top, bottom)) > REL_TOL * top_len * bottom_len:
-            raise InvalidInputError("trapezoid parallel sides a'a'' and bc are not parallel")
+            raise InvalidInputError(f"trapezoid sides a'a'' and bc are not parallel ({TRAPEZOID_ORDER})")
         super().__init__(a1, b, a2, c)
 
 
@@ -123,6 +124,7 @@ def _check_edge(length: float, name: str) -> None:
         raise InvalidInputError(f"edge {name} is shorter than one voxel ({length:.3g})")
 
 
-def _check_isosceles(l1: float, l2: float, force: bool) -> None:
+def _check_isosceles(l1: float, l2: float, force: bool, hint: str = "") -> None:
     if not force and abs(l1 - l2) > REL_TOL * max(l1, l2):
-        raise InvalidInputError(f"plane is not isosceles: equal edges are {l1:.6g} and {l2:.6g}")
+        suffix = f" ({hint})" if hint else ""
+        raise InvalidInputError(f"plane is not isosceles: equal edges are {l1:.6g} and {l2:.6g}{suffix}")

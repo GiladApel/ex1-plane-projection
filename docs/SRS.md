@@ -51,7 +51,7 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 | D7 | `p = p + dp` accumulates floating-point error | Closed form `p = a1 + x1*dp` in float64 in every backend. Deviation from the assignment, needed for exact cross-backend equality. |
 | D8 | Rounding rule | `floor(v + 0.5)` everywhere. Not banker's rounding. |
 | D9 | Isosceles check with floats | Relative tolerance 1e-3 on `|Dab - Dac| / max(Dab, Dac)`. |
-| D10 | Trapezoid point order | `a', b, a'', c`. Rail 1 is `a'->b`, rail 2 is `a''->c`. `W = floor(max(|a'a''|, |bc|)) + 1`. A triangle is a trapezoid with `a' = a''`. |
+| D10 | Trapezoid point order | `a', b, a'', c`. Rail 1 is `a'->b`, rail 2 is `a''->c`. `W = floor(max(|a'a''|, |bc|)) + 1`. A triangle is a trapezoid with `a' = a''`. The order is not guessed: for a rectangle both orders are valid planes (the second one turned by 90 degrees), so reordering cannot be done safely. Points in another order fail the isosceles or parallel check, and the error names the expected order. |
 | D11 | Degenerate input (a=b, collinear, Dab < 1, NaN, inf) | Validation error. |
 | D12 | uint8/16/32 data vs 8-bit video | One global intensity window per volume (1st to 99th percentile), computed once, so brightness is consistent across frames. |
 | D13 | Frame size varies per plane, video size must be fixed | Canvas = max `H` and `W` over all planes, rounded up to even numbers (H.264). Frames are centered and zero-padded. |
