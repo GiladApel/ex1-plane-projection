@@ -15,7 +15,7 @@ Project a 3D volume onto arbitrary planes efficiently and render the sequence of
 | ID | Requirement |
 |---|---|
 | FR1 | Load a 3D NRRD file into a `Volume`. Reject non-3D, multi-component and unsupported dtypes with a clear error. |
-| FR2 | Parse a CSV in one of two layouts. Plane per row: each row is one plane (9 numbers = triangle, 12 numbers = trapezoid), all rows with the same count; one frame per row. Point per row: 3 or 4 rows of 3 numbers each, together one plane; one frame. The layout is detected from the number of columns in the first row. Optional header row. Errors report the line number. |
+| FR2 | Parse a CSV in one of two layouts. Plane per row: each row is one plane (9 numbers = triangle, 12 numbers = trapezoid), all rows with the same count; one frame per row. Point per row: rows of 3 numbers (x, y, z), 3 rows per triangle and 4 per trapezoid; one frame per plane. Planes are separated by blank lines; without blank lines the row count decides (multiple of 3: triangles, multiple of 4: trapezoids, multiple of 12: rejected as ambiguous). The layout is detected from the number of columns in the first row. Optional header row; empty cells at the end of a row (trailing commas) are ignored. Errors report the line number. |
 | FR3 | Validate each plane: finite values, non-degenerate, isosceles within relative tolerance 1e-3 (`--force` skips the equal-length check), trapezoid coplanar with `a'a'' || bc`. |
 | FR4 | Project the volume onto each plane (see ALGORITHM.md). Output dtype equals volume dtype. |
 | FR5 | Positions outside the volume produce 0. A valid plane entirely outside the volume gives an all-zero frame. |
@@ -55,7 +55,7 @@ The assignment pseudo-code is under-specified. These are the resolutions.
 | D11 | Degenerate input (a=b, collinear, Dab < 1, NaN, inf) | Validation error. |
 | D12 | uint8/16/32 data vs 8-bit video | One global intensity window per volume (1st to 99th percentile), computed once, so brightness is consistent across frames. |
 | D13 | Frame size varies per plane, video size must be fixed | Canvas = max `H` and `W` over all planes, rounded up to even numbers (H.264). Frames are centered and zero-padded. |
-| D14 | The assignment says the CSV is "a list of 3 or 4 points" and wants a frame per plane in list order, which allows two readings | Both are supported (FR2). Plane per row is the primary reading and gives many frames; point per row describes one plane and gives one frame. A file of 3-column rows with a row count other than 3 or 4 is rejected with a clear message. |
+| D14 | The assignment says the CSV is "a list of 3 or 4 points" and wants a frame per plane in list order, which allows two readings | Both are supported (FR2). Plane per row is the primary reading. Point per row groups 3 or 4 rows into a plane; blank lines separate planes and make the grouping explicit, so a file can mix triangles and trapezoids. A contiguous block whose row count fits both groupings (a multiple of 12) or neither is rejected with a clear message rather than guessed. |
 | D15 | Anisotropic voxel spacing | Ignored in voxel space. Only `--world` takes spacing into account. |
 | D16 | Meaning of "fps" | Projection only, as in NFR1. |
 | D17 | Real data is often signed (MRHead is int16) but the assignment specifies unsigned values | Signed 8/16/32-bit data is cast to the unsigned type of the same width. If it has negative values (CT), the minimum is subtracted first and kept as `value_offset`. Floats and 64-bit types are rejected. |

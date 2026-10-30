@@ -20,13 +20,16 @@ def parse_planes(
     """Read the planes of a CSV file. Two layouts are accepted:
 
     plane per row:  every row has 9 numbers (triangle) or 12 numbers (trapezoid); one plane per row
-    point per row:  3 or 4 rows of exactly 3 numbers (x, y, z); together they are one plane
+    point per row:  every row has 3 numbers (x, y, z); 3 rows form a triangle, 4 rows a trapezoid.
+                    Planes are separated by blank lines; without blank lines the row count decides
+                    (see _group_point_rows).
 
     Pseudo-code:
-        1. read all non-blank rows
-        2. if the first row has a non-numeric cell: treat it as a header and drop it
+        1. read all rows, drop empty cells at the end of a row (a trailing comma),
+           keep the non-blank rows with their file line number
+        2. if the first row has a non-empty, non-numeric cell: treat it as a header and drop it
         3. if the first row has 3 cells: point-per-row layout
-               require 3 or 4 rows of 3 numbers, build one plane from them
+               split the rows into groups of 3 or 4, build one plane per group
            else: plane-per-row layout
                for each row (keeping its file line number):
                    parse every cell as a float; require 9 or 12 cells, the same for all rows
@@ -39,15 +42,15 @@ def parse_planes(
         raise InvalidInputError(f"CSV file not found: {path}")
 
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        rows = [(n, row) for n, row in enumerate(csv.reader(handle), start=1) if any(c.strip() for c in row)]
+        rows = [(n, cells) for n, row in enumerate(csv.reader(handle), start=1) if (cells := _drop_trailing_empty(row))]
 
-    if rows and not _is_numeric(rows[0][1]):
+    if rows and _is_header(rows[0][1]):
         rows = rows[1:]
     if not rows:
         raise InvalidInputError(f"{path}: no planes found")
 
     if len(rows[0][1]) == 3:
-        return [_plane_from_point_rows(path, rows, to_voxel, force)]
+        return [_plane_from_point_rows(path, group, to_voxel, force) for group in _group_point_rows(path, rows)]
     return _planes_from_plane_rows(path, rows, to_voxel, force)
 
 
@@ -70,10 +73,53 @@ def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool) -> li
     return planes
 
 
+def _group_point_rows(path: Path, rows: list) -> list[list]:
+    """Split point rows into planes.
+
+    Pseudo-code:
+        1. blocks = runs of rows with no blank line between them
+        2. if there are several blocks: every block is one plane and must have 3 or 4 rows
+        3. otherwise, with n rows:
+               n = 3 or 4           -> one plane
+               n a multiple of 12   -> ambiguous (triangles or trapezoids): reject, ask for blank lines
+               n a multiple of 3    -> triangles, 3 rows each
+               n a multiple of 4    -> trapezoids, 4 rows each
+               else                 -> reject
+    """
+    blocks = [[rows[0]]]
+    for previous, row in zip(rows, rows[1:], strict=False):
+        if row[0] > previous[0] + 1:
+            blocks.append([])
+        blocks[-1].append(row)
+    if len(blocks) > 1:
+        for block in blocks:
+            if len(block) not in (3, 4):
+                raise InvalidInputError(
+                    f"{path}:{block[0][0]}: a plane needs 3 or 4 point rows, this block has {len(block)}"
+                )
+        return blocks
+
+    n = len(rows)
+    if n in (3, 4):
+        size = n
+    elif n % 12 == 0:
+        raise InvalidInputError(
+            f"{path}:{rows[0][0]}: {n} point rows could be triangles or trapezoids; "
+            "separate the planes with blank lines"
+        )
+    elif n % 3 == 0:
+        size = 3
+    elif n % 4 == 0:
+        size = 4
+    else:
+        raise InvalidInputError(
+            f"{path}:{rows[0][0]}: point-per-row layout needs 3 rows per triangle or 4 per trapezoid, got {n} rows"
+        )
+    return [rows[i:i + size] for i in range(0, n, size)]
+
+
 def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool) -> Plane:
     first_line = rows[0][0]
-    if len(rows) not in (3, 4):
-        raise InvalidInputError(f"{path}:{first_line}: point-per-row layout needs 3 or 4 rows, got {len(rows)}")
     points = []
     for line, row in rows:
         try:
@@ -92,12 +138,21 @@ def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool) -> Pla
         raise InvalidInputError(f"{path}:{first_line}: {exc}") from exc
 
 
-def _is_numeric(row: list[str]) -> bool:
-    try:
-        [float(c) for c in row]
-    except ValueError:
-        return False
-    return True
+def _drop_trailing_empty(row: list[str]) -> list[str]:
+    end = len(row)
+    while end and not row[end - 1].strip():
+        end -= 1
+    return row[:end]
+
+
+def _is_header(row: list[str]) -> bool:
+    for cell in row:
+        try:
+            float(cell)
+        except ValueError:
+            if cell.strip():
+                return True
+    return False
 
 
 def _parse_row(row: list[str]) -> np.ndarray:

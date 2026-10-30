@@ -24,7 +24,12 @@ def build_parser() -> argparse.ArgumentParser:
         description="Project a 3D NRRD volume onto the planes listed in a CSV and write one video frame per plane.",
     )
     parser.add_argument("nrrd", type=Path, help="3D volume in NRRD format")
-    parser.add_argument("csv", type=Path, help="one plane per row: 9 numbers (triangle) or 12 numbers (trapezoid)")
+    parser.add_argument(
+        "csv",
+        type=Path,
+        help="planes, one frame each: one plane per row (9 numbers = triangle, 12 = trapezoid a',b,a'',c), "
+        "or one point per row (3 rows = triangle, 4 = trapezoid, planes separated by blank lines)",
+    )
     parser.add_argument("mp4", type=Path, help="output video")
     parser.add_argument("--fps", type=float, default=15.0, help="video frame rate (default 15)")
     parser.add_argument("--interp", choices=[m.value for m in Interpolation], default="nearest")

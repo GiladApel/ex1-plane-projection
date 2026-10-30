@@ -51,10 +51,14 @@ CSV formats (both give frames in row order, see SRS FR2):
 # plane per row: 9 numbers = triangle (a, b, c), 12 numbers = trapezoid (a', b, a'', c); one frame per row
 128,5,60, 28,250,60, 228,250,60
 
-# point per row: 3 or 4 rows of x,y,z = one plane, one frame
+# point per row: 3 rows of x,y,z = triangle, 4 rows = trapezoid; blank line between planes
 128,5,60
 28,250,60
 228,250,60
+
+128,5,70
+28,250,70
+228,250,70
 ```
 Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. Bad input produces a one-line `error:` message and exit code 2.
 
@@ -104,7 +108,7 @@ Also: [docs/DESIGN.md](docs/DESIGN.md) (architecture).
 The assignment leaves three points open; the choices below are documented in [docs/SRS.md](docs/SRS.md) section 6 and are easy to change.
 
 1. CSV coordinates are voxel indices (`--world` switches to NRRD world coordinates).
-2. A CSV is either one plane per row (9 or 12 numbers) or 3 or 4 rows of 3 numbers forming one plane. Both are accepted.
+2. A CSV is either one plane per row (9 or 12 numbers) or one point per row (3 rows per triangle, 4 per trapezoid, planes separated by blank lines). Both are accepted.
 3. Nearest-neighbor sampling is the default reading of `v = M[p]`; trilinear is available with `--interp trilinear`.
 
 ## Known limitations

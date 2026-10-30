@@ -95,7 +95,7 @@ def test_point_per_row_triangle(tmp_path):
 
 
 def test_point_per_row_trapezoid_with_header_and_blank_lines(tmp_path):
-    planes = parse_planes(write(tmp_path, "x,y,z\n2,0,0\n0,10,0\n\n8,0,0\n10,10,0\n\n"))
+    planes = parse_planes(write(tmp_path, "x,y,z\n\n2,0,0\n0,10,0\n8,0,0\n10,10,0\n\n"))
     assert len(planes) == 1 and isinstance(planes[0], Trapezoid)
 
 
@@ -107,10 +107,59 @@ def test_point_per_row_matches_plane_per_row(tmp_path):
 
 
 def test_point_per_row_wrong_row_count(tmp_path):
-    with pytest.raises(InvalidInputError, match="needs 3 or 4 rows, got 5"):
+    with pytest.raises(InvalidInputError, match=":1: .*got 5 rows"):
         parse_planes(write(tmp_path, "0,0,0\n1,1,1\n2,2,2\n3,3,3\n4,4,4\n"))
-    with pytest.raises(InvalidInputError, match="needs 3 or 4 rows, got 2"):
+    with pytest.raises(InvalidInputError, match=":1: .*got 2 rows"):
         parse_planes(write(tmp_path, "0,0,0\n1,1,1\n"))
+
+
+TRI_POINTS = "5,0,0\n0,10,0\n10,10,0\n"
+TRAP_POINTS = "2,0,0\n0,10,0\n8,0,0\n10,10,0\n"
+
+
+def test_point_per_row_contiguous_triangles(tmp_path):
+    planes = parse_planes(write(tmp_path, TRI_POINTS * 3))
+    assert len(planes) == 3 and all(isinstance(p, Triangle) for p in planes)
+
+
+def test_point_per_row_contiguous_trapezoids(tmp_path):
+    planes = parse_planes(write(tmp_path, TRAP_POINTS * 2))
+    assert len(planes) == 2 and all(isinstance(p, Trapezoid) for p in planes)
+
+
+def test_point_per_row_blank_line_blocks_may_mix_shapes(tmp_path):
+    planes = parse_planes(write(tmp_path, f"x,y,z\n{TRI_POINTS}\n{TRAP_POINTS}\n\n{TRI_POINTS}"))
+    assert [type(p) for p in planes] == [Triangle, Trapezoid, Triangle]
+
+
+def test_point_per_row_blank_line_blocks_resolve_multiples_of_12(tmp_path):
+    planes = parse_planes(write(tmp_path, "\n".join([TRAP_POINTS] * 3)))
+    assert len(planes) == 3 and all(isinstance(p, Trapezoid) for p in planes)
+
+
+def test_point_per_row_multiple_of_12_without_blank_lines_is_ambiguous(tmp_path):
+    with pytest.raises(InvalidInputError, match="12 point rows .*blank lines"):
+        parse_planes(write(tmp_path, TRAP_POINTS * 3))
+
+
+def test_point_per_row_bad_block_reports_its_line(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":5: .*this block has 2"):
+        parse_planes(write(tmp_path, f"{TRI_POINTS}\n0,0,0\n1,1,1\n"))
+
+
+def test_point_per_row_invalid_later_plane_reports_its_first_line(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":4: .*isosceles"):
+        parse_planes(write(tmp_path, f"{TRI_POINTS}0,0,0\n10,0,0\n0,6,0\n"))
+
+
+def test_trailing_commas_are_ignored(tmp_path):
+    assert len(parse_planes(write(tmp_path, f"{TRI},\n{TRI}, ,\n"))) == 2
+    assert len(parse_planes(write(tmp_path, "5,0,0,\n0,10,0,\n10,10,0,\n"))) == 1
+
+
+def test_empty_cell_inside_a_row_is_rejected(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":1: non-numeric"):
+        parse_planes(write(tmp_path, "5,,0,0,10,0,10,10,0\n"))
 
 
 def test_point_per_row_bad_row_reports_line(tmp_path):

@@ -82,6 +82,15 @@ def test_point_per_row_csv_gives_a_single_frame(inputs):
     assert read_frames(mp4_path).shape[0] == 1
 
 
+def test_point_per_row_csv_with_several_planes_gives_a_frame_per_plane(inputs):
+    nrrd_path, csv_path, mp4_path = inputs
+    rows = [",".join(CENTER_PLANE.split(",")[i:i + 3]) for i in (0, 3, 6)]
+    trapezoid = [",".join(TRAPEZOID.split(",")[i:i + 3]) for i in (0, 3, 6, 9)]
+    csv_path.write_text("\n".join(rows + [""] + trapezoid + [""] + rows) + "\n")
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
+    assert read_frames(mp4_path).shape[0] == 3
+
+
 def test_trilinear_on_numpy_warns_but_nearest_does_not(inputs, capsys):
     nrrd_path, csv_path, mp4_path = inputs
     args = [str(nrrd_path), str(csv_path), str(mp4_path), "--interp", "trilinear", "--backend", "numpy"]
