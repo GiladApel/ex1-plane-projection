@@ -20,7 +20,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-markers = ["slow: long-running performance tests"]
+markers = [
+    "slow: long-running performance tests",
+    "portable: speed tests that compare measurements on the same machine (run in CI)",
+]
 addopts = "-m 'not slow'"
 
 [tool.ruff]
