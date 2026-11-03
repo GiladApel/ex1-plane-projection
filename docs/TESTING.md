@@ -6,7 +6,7 @@
 2. **Known-answer data.** Synthetic volumes (gradient, sphere, checkerboard, seeded noise) make the expected output computable without running the code under test.
 3. **Edge cases are enumerated, then randomized.** Hand-written tests cover the cases that are easy to name (outside the volume, rounding on .5, degenerate planes). Hypothesis then searches the space of random planes, volumes and dtypes for what was not thought of.
 4. **The demo is tested as a user runs it.** End-to-end tests call the CLI, and one test runs `python Ex0.py ...` as a subprocess.
-5. **Performance is tested separately and marked slow**, so the normal run stays under 15 seconds.
+5. **Performance is tested separately and marked slow**, so the normal run stays under 15 seconds. Speed tests that compare two measurements on the same machine are also marked `portable` and run in CI; absolute frame rates depend on the machine and are checked locally.
 
 ## Levels
 
@@ -18,9 +18,9 @@
 | Equivalence | NumPy (single and forced multi-chunk) and Numba equal the reference exactly: Hypothesis over random and axis-aligned planes, all dtypes, both samplers; half-integer coordinates that lock the rounding rule; thread-count independence (1, 2, 3, 7); backend selection and fallback when Numba is missing | `test_backend_equivalence.py` |
 | Rendering | Intensity window, canvas centering and even sizing, video writer checks | `test_render.py` |
 | End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, point-per-row CSV with one or several planes, `--world`, `--force`, error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
-| Performance | 500^3 uint8, 100 random oblique planes: Numba and NumPy each at least 100 fps median (run with `pytest -m slow`) | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
+| Performance | 500^3 uint8, 40 random oblique planes, best of 3 medians. Absolute floors: Numba nearest 500 fps, Numba trilinear 250, NumPy nearest 100 (about half of the measured speed). Portable: Numba on all threads at least 3x its 1-thread speed (1.5x on 4-thread machines), Numba at least 2x NumPy. End to end: the demo on 180 frames of 446x446 at 100+ fps projection and 30+ fps including encoding. Run with `pytest -m slow` | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-205 tests: 203 in the default run and 2 slow ones.
+209 tests: 203 in the default run and 6 slow ones (2 of them portable, also run in CI).
 
 ## Demo testing
 
@@ -65,14 +65,15 @@ Statement coverage of the package is 90 percent (`pytest --cov=projection`). Two
 ## Not tested
 
 - Visual quality of the video, beyond brightness checks. This is judged by eye (EXPERIMENT.md).
-- Speed on other hardware. The performance tests encode thresholds measured on one machine; they are marked slow and not run in CI.
+- Absolute speed on other hardware. The absolute floors were set on one machine (on mains power; on battery the laptop throttles and they can fail) and are not run in CI, because shared CI runners are too noisy. CI runs only the portable ratio tests, which catch lost parallelism or a slowed-down Numba kernel on any machine. Verified by injecting regressions: removing `parallel=True` from the Numba kernel fails both portable tests, and a 30 ms delay in the intensity window fails the end-to-end test.
 - Extreme plane coordinates (beyond about 1e9); the tests use planes within a few volume sizes of the volume.
 
 ## Running
 
 ```
 pytest                 # 203 tests, about 15 seconds
-pytest -m slow         # performance tests, needs a few seconds and about 150 MB of memory
+pytest -m slow         # all performance tests, about 20 seconds and about 150 MB of memory (run on mains power)
+pytest -m portable     # only the machine-independent speed tests, as in CI
 pytest --cov=projection --cov-report=term-missing
 ruff check .           # lint
 mypy                   # type check

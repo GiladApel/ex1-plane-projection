@@ -121,6 +121,6 @@ The assignment leaves three points open; the choices below are documented in [do
 
 ```
 pytest                 # 203 fast tests
-pytest -m slow         # performance tests (500^3 volume)
+pytest -m slow         # performance tests (500^3 volume); pytest -m portable runs the subset used in CI
 ```
-CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed, plus `ruff check .` and `mypy`.
+CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed, `ruff check .`, `mypy`, and the machine-independent speed tests (Numba thread scaling, Numba versus NumPy).

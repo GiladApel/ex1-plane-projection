@@ -41,3 +41,15 @@ jobs:
       - run: pip install -e ".[dev,fast]"
       - run: ruff check .
       - run: mypy
+
+  speed:
+    runs-on: ubuntu-latest
+    name: speed ratios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,fast]"
+      - name: Machine-independent speed tests (thread scaling, Numba vs NumPy)
+        run: pytest -m portable -q
