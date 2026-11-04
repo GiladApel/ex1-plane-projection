@@ -67,6 +67,8 @@ Rows 0 and 1 have their samples at `y < -0.5`, outside the volume, so their pixe
 
 ### Differences from the assignment's pseudo-code
 
+The full list, with the assignment's version, the reason and the effect on the image, is in [DEVIATIONS.md](DEVIATIONS.md). The ones that shape the algorithm:
+
 - **D3, row indexing.** The assignment increments `a1` before it is used, so the apex row is never sampled and, with `y < Dab`, the last row can fall beyond the base. We compute `a1 = A + y * v` and run `y = 0 .. floor(Dab)`.
 - **D4, D5, width and centering.** The widest row has `d12 + 1` samples (`x1 = 0 .. d12`, both ends), so an `E` with `Dbc` columns would have no column for the last sample. We use `W = floor(Dbc) + 1` columns and center at `(W - 1) / 2`. This is the same center as the assignment's `Dbc / 2` when `Dbc` is an integer, and less than one pixel away otherwise.
 - **D6, D7.** `E` is stored as `E[y][x]` (rows first), and positions are computed in closed form, `p = a1 + x1 * dp`, instead of accumulating `p = p + dp`; the values are mathematically equal, but there is no accumulated rounding error and all backends give identical results.
