@@ -145,7 +145,7 @@ The assignment leaves these points open; the choices below are documented in [do
 ## Tests
 
 ```
-pytest                 # 312 fast tests (the real-data ones need python scripts/download_data.py MRHead)
+pytest                 # 320 fast tests (the real-data ones need python scripts/download_data.py MRHead)
 pytest -m slow         # performance tests (500^3 volume); pytest -m portable runs the subset used in CI
 ```
 CI runs the fast tests, including those on the real MRHead scan, on Python 3.10 to 3.14, each with and without Numba installed, `ruff check .`, `mypy`, and the machine-independent speed tests (Numba thread scaling, Numba versus NumPy).

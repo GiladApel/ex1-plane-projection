@@ -11,6 +11,7 @@ from .sampler import SNAP
 
 REL_TOL = 1e-3
 COLLINEAR_TOL = 1e-6
+SAME_POINT_TOL = 1e-9
 TRAPEZOID_ORDER = "expected point order a', b, a'', c, where a'b and a''c are the equal legs"
 # H.264 encoders and players reject larger frames, and one oversized plane would enlarge every frame of the video.
 MAX_IMAGE_SIDE = 4096
@@ -58,6 +59,7 @@ class Triangle(Plane):
 
     def __init__(self, a, b, c, force: bool = False) -> None:
         a, b, c = (_as_point(p, n) for p, n in zip((a, b, c), "abc", strict=True))
+        _check_distinct({"a": a, "b": b, "c": c})
         ab, ac = b - a, c - a
         dab, dac = np.linalg.norm(ab), np.linalg.norm(ac)
         _check_edge(dab, "ab")
@@ -73,6 +75,8 @@ class Trapezoid(Plane):
 
     def __init__(self, a1, b, a2, c, force: bool = False) -> None:
         a1, b, a2, c = (_as_point(p, n) for p, n in zip((a1, b, a2, c), ("a'", "b", "a''", "c"), strict=True))
+        # a' = a'' or b = c alone is a parallel side of length zero, which is allowed; both at once is not.
+        _check_distinct({"a'": a1, "b": b, "a''": a2, "c": c}, allowed=(("a'", "a''"), ("b", "c")))
         rail1, rail2 = b - a1, c - a2
         d1, d2 = np.linalg.norm(rail1), np.linalg.norm(rail2)
         _check_edge(d1, "a'b")
@@ -80,7 +84,7 @@ class Trapezoid(Plane):
         top, bottom = a2 - a1, c - b
         top_len, bottom_len = np.linalg.norm(top), np.linalg.norm(bottom)
         if top_len == 0 and bottom_len == 0:
-            raise InvalidInputError("trapezoid is degenerate: both parallel sides have zero length")
+            raise InvalidInputError("trapezoid is degenerate: a' and a'' are the same point, and so are b and c")
         if np.linalg.norm(np.cross(rail1, rail2)) / (d1 * d2) < COLLINEAR_TOL and top_len == 0:
             raise InvalidInputError("trapezoid points are collinear")
         triple = abs(np.dot(top, np.cross(rail1, c - a1)))
@@ -132,6 +136,16 @@ def _as_point(value, name: str) -> np.ndarray:
     if not np.all(np.isfinite(p)):
         raise InvalidInputError(f"point {name} has a non-finite coordinate")
     return p
+
+
+def _check_distinct(points: dict[str, np.ndarray], allowed: tuple[tuple[str, str], ...] = ()) -> None:
+    """Name the first pair of points that coincide, other than the allowed pairs, with its coordinates."""
+    names = list(points)
+    for i, first in enumerate(names):
+        for second in names[i + 1:]:
+            if (first, second) not in allowed and np.linalg.norm(points[first] - points[second]) <= SAME_POINT_TOL:
+                where = ", ".join(f"{v:g}" for v in points[first])
+                raise InvalidInputError(f"points {first} and {second} are the same point ({where})")
 
 
 def _check_edge(length: float, name: str) -> None:

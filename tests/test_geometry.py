@@ -32,14 +32,37 @@ def test_triangle_within_tolerance_is_accepted():
 
 def test_triangle_rejects_collinear():
     with pytest.raises(InvalidInputError, match="collinear"):
-        Triangle((0, 0, 0), (5, 0, 0), (5, 0, 0))
+        Triangle((0, 0, 0), (5, 0, 0), (10, 0, 0), force=True)
     with pytest.raises(InvalidInputError, match="collinear"):
         Triangle((0, 0, 0), (5, 0, 0), (-5, 0, 0))
 
 
-def test_triangle_rejects_coincident_points():
-    with pytest.raises(InvalidInputError, match="shorter than one voxel"):
-        Triangle((1, 1, 1), (1, 1, 1), (4, 5, 6), force=True)
+@pytest.mark.parametrize(("points", "message"), [
+    (((1, 1, 1), (1, 1, 1), (4, 5, 6)), "points a and b are the same point (1, 1, 1)"),
+    (((1, 1, 1), (4, 5, 6), (1, 1, 1)), "points a and c are the same point (1, 1, 1)"),
+    (((0, 0, 0), (5, 0, 0), (5, 0, 0)), "points b and c are the same point (5, 0, 0)"),
+    (((0, 0, 0), (2.5, -1, 0), (2.5, -1, 0)), "points b and c are the same point (2.5, -1, 0)"),
+])
+def test_triangle_names_the_coincident_points(points, message):
+    with pytest.raises(InvalidInputError) as error:
+        Triangle(*points, force=True)
+    assert str(error.value) == message
+
+
+@pytest.mark.parametrize(("points", "pair"), [
+    (((0, 0, 0), (0, 0, 0), (8, 0, 0), (10, 10, 0)), "a' and b"),
+    (((2, 0, 0), (0, 10, 0), (0, 10, 0), (10, 10, 0)), "b and a''"),
+    (((2, 0, 0), (0, 10, 0), (2, 0, 0), (2, 0, 0)), "a' and c"),
+    (((2, 0, 0), (0, 10, 0), (8, 0, 0), (8, 0, 0)), "a'' and c"),
+])
+def test_trapezoid_names_the_coincident_points(points, pair):
+    with pytest.raises(InvalidInputError, match=f"^points {pair} are the same point"):
+        Trapezoid(*points, force=True)
+
+
+def test_trapezoid_with_one_side_of_zero_length_is_allowed():
+    assert Trapezoid((5, 0, 0), (0, 10, 0), (5, 0, 0), (10, 10, 0)).shape == (12, 11)
+    assert Trapezoid((0, 0, 0), (5, 10, 0), (10, 0, 0), (5, 10, 0)).shape == (12, 11)
 
 
 def test_rejects_edge_shorter_than_one_voxel():

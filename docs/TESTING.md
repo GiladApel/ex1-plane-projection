@@ -23,7 +23,7 @@
 | Interactive demo | The step-by-step explanation of the "How it works" tab rebuilds every pixel of 80 random triangles and trapezoids exactly as the reference backend does, nearest and trilinear; both tabs render without an exception (Streamlit's `AppTest`), including a pixel chosen by a click, pixels in the first, middle and last rows of both shapes and samplers, and a chosen pixel that no longer exists after the plane shrinks | `test_demo.py` (needs `demo/requirements.txt`; CI job "demo") |
 | Performance | 500^3 uint8, 40 random oblique planes, best of 3 medians. Absolute floors: Numba nearest 500 fps, Numba trilinear 250, NumPy nearest 100 (about half of the measured speed). Portable: Numba on all threads at least 3x its 1-thread speed (1.5x on 4-thread machines), Numba at least 1.4x NumPy (measured 4x on the reference machine, 1.9x on CI runners). End to end: the demo on 180 frames of 446x446 at 100+ fps projection and 30+ fps including encoding. Run with `pytest -m slow` | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-318 tests: 312 in the default run and 6 slow ones (2 of them portable, also run in CI). The 9 demo tests skip when Streamlit or Plotly is not installed; CI runs them in a job of their own.
+326 tests: 320 in the default run and 6 slow ones (2 of them portable, also run in CI). The 9 demo tests skip when Streamlit or Plotly is not installed; CI runs them in a job of their own.
 
 ## Failure reports
 
@@ -74,7 +74,7 @@ Statement coverage of the package is 92 percent (`pytest --cov=projection`). Two
 ## Running
 
 ```
-pytest                 # 312 tests, about 45 seconds (32 on MRHead, 9 on the demo)
+pytest                 # 320 tests, about 45 seconds (32 on MRHead, 9 on the demo)
 pytest -m slow         # all performance tests, about 20 seconds and about 150 MB of memory (run on mains power)
 pytest -m portable     # only the machine-independent speed tests, as in CI
 pytest --cov=projection --cov-report=term-missing
