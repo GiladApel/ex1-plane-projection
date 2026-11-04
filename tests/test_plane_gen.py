@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from conftest import assert_images_equal
 
 from projection import synthetic
 from projection.geometry import plane_from_points
@@ -17,7 +18,7 @@ def test_sweep_reproduces_every_slice(axis):
     assert len(sets) == data.shape[axis]
     for k, points in enumerate(sets):
         image = ReferenceProjector().project(volume, plane_from_points(points))
-        assert np.array_equal(image, np.take(data, k, axis=axis))
+        assert_images_equal(image, np.take(data, k, axis=axis))
 
 
 def test_sweep_with_frame_count_spans_the_volume():

@@ -5,6 +5,7 @@ from pathlib import Path
 import imageio.v2 as imageio
 import numpy as np
 import pytest
+from conftest import assert_images_equal
 
 from projection import synthetic
 from projection.cli import EXIT_INTERNAL, EXIT_INVALID, EXIT_OK, main
@@ -65,7 +66,7 @@ def test_backends_produce_identical_videos(inputs, tmp_path):
         out = tmp_path / f"{backend}.mp4"
         assert main([str(nrrd_path), str(csv_path), str(out), "--backend", backend]) == EXIT_OK
         decoded.append(read_frames(out))
-    assert np.array_equal(decoded[0], decoded[1])
+    assert_images_equal(decoded[0], decoded[1])
 
 
 def test_trapezoid_rows(inputs):

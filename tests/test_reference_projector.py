@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 import pytest
+from conftest import assert_images_equal
 
 from projection import synthetic
 from projection.errors import InvalidInputError
@@ -41,7 +42,7 @@ def test_axis_aligned_plane_equals_numpy_slice(dtype, axes):
         expected = expected.T
     assert image.shape == (10, 6)
     assert image.dtype == np.dtype(dtype)
-    assert np.array_equal(image, expected)
+    assert_images_equal(image, expected)
 
 
 def test_triangle_on_gradient_has_constant_value_and_exact_pixel_count():
@@ -65,7 +66,7 @@ def test_triangle_apex_row_is_one_centered_pixel():
     centre = math.floor((plane.shape[1] - 1) / 2 + 0.5)
     expected_row = np.zeros(plane.shape[1], dtype=data.dtype)
     expected_row[centre] = data[3, 5, 4]
-    assert np.array_equal(image[0], expected_row)
+    assert_images_equal(image[0], expected_row)
 
 
 def test_plane_fully_outside_volume_is_all_zero():
@@ -79,7 +80,7 @@ def test_plane_partially_outside_is_zero_only_outside():
     data = synthetic.random_volume((12, 12, 12), seed=4)
     image = NEAREST.project(Volume(data), axis_aligned_trapezoid(1, 0, 2, -5, 2, 6))
     assert not image[:5].any()
-    assert np.array_equal(image[5:], data[2:8, 0:5, 6].T)
+    assert_images_equal(image[5:], data[2:8, 0:5, 6].T)
 
 
 def test_oblique_plane_on_gradient_matches_closed_form():
@@ -97,7 +98,7 @@ def test_out_buffer_is_cleared_reused_and_validated():
     out = np.full(plane.shape, 77, dtype=np.uint8)
     result = NEAREST.project(volume, plane, out=out)
     assert result is out
-    assert np.array_equal(out, NEAREST.project(volume, plane))
+    assert_images_equal(out, NEAREST.project(volume, plane))
     with pytest.raises(InvalidInputError):
         NEAREST.project(volume, plane, out=np.zeros((3, 3), dtype=np.uint8))
     with pytest.raises(InvalidInputError):
@@ -118,13 +119,13 @@ def test_non_integer_edges_have_no_holes_in_rows():
 def test_trilinear_on_linear_gradient_equals_rounded_coordinate(dtype):
     volume = Volume(synthetic.gradient((12, 12, 12), dtype))
     plane = Trapezoid((2, 3, 1), (8, 11, 1), (2, 3, 6), (8, 11, 6))
-    assert np.array_equal(TRILINEAR.project(volume, plane), NEAREST.project(volume, plane))
+    assert_images_equal(TRILINEAR.project(volume, plane), NEAREST.project(volume, plane))
 
 
 def test_trilinear_equals_nearest_on_integer_positions():
     volume = Volume(synthetic.random_volume((11, 13, 15), seed=6))
     plane = axis_aligned_trapezoid(0, 1, 2, 1, 2, 4)
-    assert np.array_equal(TRILINEAR.project(volume, plane), NEAREST.project(volume, plane))
+    assert_images_equal(TRILINEAR.project(volume, plane), NEAREST.project(volume, plane))
 
 
 def test_sample_nearest_rounds_half_up_and_clips():

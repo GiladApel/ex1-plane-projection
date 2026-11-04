@@ -22,6 +22,14 @@
 
 249 tests: 243 in the default run and 6 slow ones (2 of them portable, also run in CI).
 
+## Failure reports
+
+A failing test should say where the fault is, not only that there is one. Two parts of `tests/conftest.py` do this:
+- `assert_images_equal(actual, expected)` replaces bare `np.array_equal` checks of images. On failure it gives the number of differing pixels, the box that contains all of them (one row, one column edge, or scattered), and the first five with both values, for example `60 of 60 pixels differ, within [0..9, 0..5]: (0, 0): got 0, expected 125; (0, 1): got 125, expected 33; ...`, which shows a one-column shift at a glance.
+- After a failing run, a section "failures by location" lists every failure as `test file:line -> src/projection file:line`, the second being the deepest line of the package that was running when an exception was raised, and the first line of the message.
+
+Both were checked by injecting faults into a copy of the code: a centering error was reported as a one-column shift in every pixel, and an exception in the sampler was traced to `src/projection/sampler.py:22`.
+
 ## Demo testing
 
 The assignment's demo is `python Ex0.py file.nrrd file.csv file.mp4`. It is covered at three levels:

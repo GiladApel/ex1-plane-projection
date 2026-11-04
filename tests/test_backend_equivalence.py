@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from conftest import assert_images_equal
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
@@ -82,7 +83,7 @@ def test_random_planes_match_reference(backend, mode, data):
     expected = ReferenceProjector(mode).project(volume, plane)
     actual = backend(mode).project(volume, plane)
     assert actual.dtype == expected.dtype
-    assert np.array_equal(actual, expected)
+    assert_images_equal(actual, expected)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -94,7 +95,7 @@ def test_half_integer_coordinates_lock_the_rounding_rule(backend, mode, offset):
         (1 + offset, 1 + offset, 4 + offset), (1 + offset, 8 + offset, 4 + offset),
         (6 + offset, 1 + offset, 4 + offset), (6 + offset, 8 + offset, 4 + offset),
     )
-    assert np.array_equal(backend(mode).project(volume, plane), ReferenceProjector(mode).project(volume, plane))
+    assert_images_equal(backend(mode).project(volume, plane), ReferenceProjector(mode).project(volume, plane))
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -102,7 +103,7 @@ def test_half_integer_coordinates_lock_the_rounding_rule(backend, mode, offset):
 def test_triangle_matches_reference(backend, mode):
     volume = Volume(synthetic.random_volume((16, 16, 16), np.uint8, seed=8))
     plane = Triangle((8, 2.5, 3), (3, 14, 12), (13, 14, 12))
-    assert np.array_equal(backend(mode).project(volume, plane), ReferenceProjector(mode).project(volume, plane))
+    assert_images_equal(backend(mode).project(volume, plane), ReferenceProjector(mode).project(volume, plane))
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -119,7 +120,7 @@ def test_out_buffer_is_used_and_cleared(backend):
     out = np.full(plane.shape, 200, dtype=np.uint8)
     result = backend().project(volume, plane, out=out)
     assert result is out
-    assert np.array_equal(out, ReferenceProjector().project(volume, plane))
+    assert_images_equal(out, ReferenceProjector().project(volume, plane))
     with pytest.raises(InvalidInputError):
         backend().project(volume, plane, out=np.zeros((2, 2), dtype=np.uint8))
     with pytest.raises(InvalidInputError, match="C-contiguous"):
@@ -160,8 +161,8 @@ def test_numpy_result_does_not_depend_on_thread_count(mode, threads):
     plane = synthetic.random_plane(np.random.default_rng(5), (19.5, 19.5, 19.5), 41.5, 30.0, 12.0)
     expected = NumpyProjector(mode, threads=1).project(volume, plane)
     actual = NumpyProjector(mode, threads=threads, min_parallel_cells=0).project(volume, plane)
-    assert np.array_equal(actual, expected)
-    assert np.array_equal(actual, ReferenceProjector(mode).project(volume, plane))
+    assert_images_equal(actual, expected)
+    assert_images_equal(actual, ReferenceProjector(mode).project(volume, plane))
 
 
 def test_numpy_rejects_zero_threads():
@@ -175,7 +176,7 @@ def test_every_backend_is_a_context_manager(backend):
     plane = Triangle((12, 2, 12), (2, 22, 12), (22, 22, 12))
     with backend(Interpolation.NEAREST) as projector:
         image = projector.project(volume, plane)
-    assert np.array_equal(image, ReferenceProjector().project(volume, plane))
+    assert_images_equal(image, ReferenceProjector().project(volume, plane))
 
 
 def test_closing_the_numpy_engine_stops_its_threads_and_it_stays_usable():
@@ -183,10 +184,10 @@ def test_closing_the_numpy_engine_stops_its_threads_and_it_stays_usable():
     plane = synthetic.random_plane(np.random.default_rng(5), (19.5, 19.5, 19.5), 41.5, 30.0, 12.0)
     expected = ReferenceProjector().project(volume, plane)
     with NumpyProjector(threads=3, min_parallel_cells=0) as projector:
-        assert np.array_equal(projector.project(volume, plane), expected)
+        assert_images_equal(projector.project(volume, plane), expected)
         pool = projector._pool
         assert pool is not None
     assert projector._pool is None and pool._shutdown
     projector.close()
-    assert np.array_equal(projector.project(volume, plane), expected)
+    assert_images_equal(projector.project(volume, plane), expected)
     projector.close()
