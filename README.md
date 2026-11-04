@@ -89,6 +89,15 @@ End-to-end speed including mp4 encoding: 46 to 393 fps depending on frame size.
 
 Every pixel was also sampled with `vtkImageReslice`, the filter 3D Slicer draws its slice views with: on more than 33 million pixels of nearest-voxel sampling the two agree except for a few points exactly between two voxels ([EXPERIMENT.md](docs/EXPERIMENT.md#comparison-with-3d-slicer)).
 
+## Interactive demo
+
+```
+pip install -r demo/requirements.txt
+streamlit run demo/app.py
+```
+
+Sliders move, turn and size a triangle or trapezoid inside MRHead (downloaded on first use) or a synthetic volume. The page shows the plane in the volume's box, its projected image with the size and the time per plane, and the plane as a row of the lecturer's CSV format, ready to paste into a file for `Ex0.py`. The same app can be hosted on Streamlit Community Cloud from this repository (main file `demo/app.py`).
+
 ## Design in short
 
 - A plane is reduced to two *rails*; triangles and trapezoids share one code path.
