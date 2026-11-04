@@ -7,7 +7,7 @@ name = "plane-projection"
 version = "0.1.0"
 description = "Project a 3D NRRD volume onto arbitrary planes"
 requires-python = ">=3.10"
-dependencies = ["numpy", "pynrrd", "imageio", "imageio-ffmpeg"]
+dependencies = ["numpy", "pynrrd", "imageio", "imageio-ffmpeg", "pillow"]
 
 [project.optional-dependencies]
 fast = ["numba"]

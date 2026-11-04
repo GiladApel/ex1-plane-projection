@@ -3,3 +3,4 @@ numba
 pynrrd
 imageio
 imageio-ffmpeg
+pillow
