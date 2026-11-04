@@ -42,6 +42,34 @@ Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md
 
 **Nearest versus trilinear.** Comparing frame 20 of runs 2 and 3 (an oblique plane), nearest sampling shows blocky, stair-stepped tissue edges and trilinear is visibly smoother; 31% of the pixels differ, by 2 gray levels on average. The price is the 2.5x lower projection speed, which is still more than 800 fps.
 
+## Comparison with 3D Slicer
+
+3D Slicer draws its slice views with `vtkImageReslice` from VTK. `scripts/compare_slicer.py` (needs `pip install vtk`, the `slicer` extra) samples every pixel our program fills a second time with `vtkImageReslice`, at the same point of the volume, and compares the two values:
+
+```
+python scripts/compare_slicer.py data/MRHead.nrrd docs/experiment/mrhead_sweep.csv docs/experiment/mrhead_rotate.csv --random 200
+python scripts/compare_slicer.py data/MRHead.nrrd docs/experiment/mrhead_rotate.csv --random 200 --interp trilinear
+python scripts/compare_slicer.py data/CTChest.nrrd docs/experiment/ctchest_rotate.csv --random 100
+```
+
+VTK gets only the sample points; it reads the volume itself, with its own axis order, its own rounding to the nearest voxel or linear interpolation, and its own bounds. Only pixels whose sample point lies inside the volume are counted (outside, both programs give 0 by definition). `--random N` adds N oblique planes through the volume, half triangles and half trapezoids, with seed 0. Measured with VTK 9.7.2.
+
+| Volume and planes | Sampling | Planes | Pixels compared | Identical | Different |
+|---|---|---|---|---|---|
+| MRHead, axial sweep (run 1) | nearest | 256 | 8,519,680 | 100% | 0 |
+| MRHead, rotation (run 2) | nearest | 180 | 9,115,648 | 100% | 0 |
+| MRHead, random oblique planes | nearest | 200 | 826,612 | 99.998% | 15, all at a half |
+| CTChest, rotation (run 4) | nearest | 180 | 14,374,824 | 100% | 0 |
+| CTChest, random oblique planes | nearest | 100 | 477,497 | 99.998% | 10, all at a half |
+| MRHead, rotation (run 3) | trilinear | 180 | 8,845,892 | 99.997% | 300, by 1 gray level |
+| MRHead, random oblique planes | trilinear | 200 | 824,912 | 99.995% | 44, by 1 gray level |
+
+**Nearest voxel: identical except exactly at a half.** Every differing pixel has its sample point within 0.00001 voxel of the boundary between two voxels on some axis, where both voxels are equally near. This program rounds the half up (`floor(p + 0.5)`, D8), and VTK computes the rounding at a slightly different floating-point precision, so a point a hair from the half can fall on either side. Away from these points the images are the same, which confirms the axis order, the reading of the NRRD file, the rounding rule and the bounds.
+
+**Trilinear: within one gray level.** The two programs blend the same 8 voxels with the same weights; the result is rounded to an integer after the blend, and when it lands within rounding error of a half the two can round to neighboring values. The largest difference is 1. Pixels within one voxel of the volume's edge are left out, because there VTK and this program treat the missing neighbors differently (this program counts them as 0, FR5.1).
+
+This compares how the volume is read at each point. Which points a plane samples follows the assignment's pseudo-code, not 3D Slicer: a Slicer slice view samples a square grid on the plane, so for a triangle its rows are one unit apart across the plane, while the assignment steps one unit along the legs and gives more rows ([DEVIATIONS.md](DEVIATIONS.md#where-this-project-follows-the-text-on-purpose)). For rectangles the two grids are the same.
+
 ## Limitations observed
 
 - **CT contrast.** In the first version the CTChest video was pale: 21% of the volume is padding at the minimum value (-3024 HU, shifted to 0 by the loader), which pulled the 1st percentile of the brightness window down to the padding, so air, soft tissue and bone all landed in the upper part of the gray range. The window now ignores the minimum value when it covers at least 5% of the volume (SRS D12): for CTChest the window moved from 0..3327 to 2014..3372, so air is black and the lungs are visible. MRHead hardly changes (0..134 to 1..136). Soft tissue still appears light gray, since one global window covers air to bone; a tissue-specific window (lung or soft tissue) would need user-supplied bounds, which are out of scope.

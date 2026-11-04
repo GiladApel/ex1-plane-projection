@@ -12,6 +12,7 @@ dependencies = ["numpy", "pynrrd", "imageio", "imageio-ffmpeg"]
 [project.optional-dependencies]
 fast = ["numba"]
 figures = ["matplotlib"]
+slicer = ["vtk"]
 dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "mypy"]
 
 [tool.setuptools.packages.find]

@@ -85,6 +85,8 @@ Demo videos made with `Ex0.py` (details in [docs/EXPERIMENT.md](docs/EXPERIMENT.
 [CTChest rotation](docs/experiment/ctchest_rotate.mp4).
 End-to-end speed including mp4 encoding: 46 to 393 fps depending on frame size.
 
+Every pixel was also sampled with `vtkImageReslice`, the filter 3D Slicer draws its slice views with: on more than 33 million pixels of nearest-voxel sampling the two agree except for a few points exactly between two voxels ([EXPERIMENT.md](docs/EXPERIMENT.md#comparison-with-3d-slicer)).
+
 ## Design in short
 
 - A plane is reduced to two *rails*; triangles and trapezoids share one code path.

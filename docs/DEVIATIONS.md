@@ -33,7 +33,7 @@ Additions that the text does not ask for, and that do not change the default out
 
 ## Where this project follows the text on purpose
 
-**Row spacing along the legs.** Each row moves one unit along the legs (`a1 += vab`), as in the text, so a triangle's image has `floor(Dab) + 1` rows. Another reading spaces rows one unit along the triangle's height instead, which keeps the true proportions (as 3D Slicer shows a cut) but makes the image about 10 to 15 percent shorter for typical triangles. The lecturer said outputs should match his "up to pixels", so this project keeps his spacing. [EXPERIMENT.md](EXPERIMENT.md#comparison-with-an-independent-implementation) compares the two readings on the same planes.
+**Row spacing along the legs.** Each row moves one unit along the legs (`a1 += vab`), as in the text, so a triangle's image has `floor(Dab) + 1` rows. Another reading spaces rows one unit along the triangle's height instead, which keeps the true proportions (as 3D Slicer shows a cut) but has `floor(height) + 1` rows: for a triangle whose base equals its height, `Dab = 1.118 * height`, so that image is about 11 percent shorter. The lecturer said outputs should match his "up to pixels", so this project keeps his spacing. Within each row, the values read are the same as 3D Slicer's for the same points ([EXPERIMENT.md](EXPERIMENT.md#comparison-with-3d-slicer)).
 
 ## How far the deviations move the output
 
