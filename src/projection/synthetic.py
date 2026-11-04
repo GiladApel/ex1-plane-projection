@@ -63,10 +63,11 @@ def random_plane(
     return Trapezoid(m - top / 2 * w, far - bottom / 2 * w, m + top / 2 * w, far + bottom / 2 * w)
 
 
-def oblique_rectangles(size: int, count: int, seed: int = 0) -> list[Trapezoid]:
-    """Random oblique rectangles through the center of a size^3 volume, all with the same output shape."""
+def oblique_rectangles(size: int, count: int, seed: int = 0, side: float | None = None) -> list[Trapezoid]:
+    """Random oblique squares through the center of a size^3 volume, all with the same output shape.
+    side defaults to size - 0.5 (an image of size x size pixels)."""
     rng = np.random.default_rng(seed)
-    side = size - 0.5
+    side = size - 0.5 if side is None else side
     center = [(size - 1) / 2] * 3
     return [random_plane(rng, center, side, side, side) for _ in range(count)]
 

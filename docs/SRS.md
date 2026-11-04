@@ -202,14 +202,14 @@ Full matrix (dtype, sampling, plane orientation, thread scaling): [experiment/be
 
 | Backend | Sampling | Median fps | Slowest frame fps |
 |---|---|---|---|
-| numba | nearest | about 840 (1950 for axis-aligned planes) | about 330 |
-| numba | trilinear | about 410 | about 240 |
-| numpy | nearest | about 150 (140 to 240 across dtypes and plane orientations) | about 90 |
-| numpy | trilinear | about 22 | 17 |
+| numba | nearest | about 1400 (3400 for axis-aligned planes) | about 660 |
+| numba | trilinear | about 610 | about 310 |
+| numpy | nearest | about 390 (390 to 770 across dtypes and plane orientations) | about 280 |
+| numpy | trilinear | about 35 (35 to 65) | 22 |
 
-- Numba meets the 100 fps target by a factor of 8 or more and stays above it even on a single thread (169 fps).
-- NumPy nearest meets the 100 fps target on median on this machine, with its slowest frames at 50 to 160 fps. Run-to-run variation is large (about 20 percent), so values are approximate.
-- NumPy trilinear is correct but does not reach the target (16 to 35 fps); NFR1.3 only requires trilinear on Numba.
+- Numba meets the 100 fps target by a factor of 14 and stays above it on a single thread (295 fps) and on 901 x 901 images (847 fps; [speed against image size](experiment/speed_by_size.png)).
+- NumPy nearest meets the 100 fps target on this machine up to 901 x 901 images (119 fps), with its slowest 500 x 500 frames at about 280 fps. An earlier run of the same matrix on the same laptop gave about 40 percent lower figures (Numba 837, NumPy 153 fps); the laptop's power and thermal state explain most of the difference, so the numbers are best read as orders of magnitude.
+- NumPy trilinear is correct but does not reach the target (35 to 65 fps at 500 x 500, 8 fps at 901 x 901); NFR1.3 only requires trilinear on Numba.
 - NumPy history: a first version gathered only the kept samples with fancy indexing and ran at 27 fps; computing the dense grid with cached buffers gave about 70 fps; splitting the frame into row chunks on 4 threads gave about 150 fps. Without chunking the result is identical, only slower; chunking never changes the output (tested for 1, 2, 3 and 7 threads).
 
 ## 8. Use cases

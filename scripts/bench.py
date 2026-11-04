@@ -1,11 +1,12 @@
 """Projection throughput benchmark.
 
 python scripts/bench.py [--size 500] [--dtype uint8 ...] [--planes oblique axis] [--backend numba numpy]
-                        [--interp nearest ...] [--frames 200] [--seed 0] [--csv]
+                        [--interp nearest ...] [--frames 200] [--seed 0] [--side N] [--csv]
 
 Measures only project(volume, plane, out) per frame: volume creation, plane construction, JIT
 compilation (one untimed warm-up call) and video encoding are excluded.
-oblique: random oblique squares through the volume center. axis: random axis-aligned full slices.
+oblique: random oblique squares through the volume center, of side N + 0.5 with --side N (an image of
+(N + 1) x (N + 1) pixels), else of the volume's size. axis: random axis-aligned full slices.
 Set NUMBA_NUM_THREADS to limit Numba's thread count.
 """
 import argparse
@@ -27,9 +28,9 @@ from projection.volume import Volume  # noqa: E402
 COLUMNS = ["dtype", "planes", "backend", "interp", "median_fps", "mean_fps", "p95_ms", "min_fps"]
 
 
-def make_planes(kind: str, size: int, count: int, seed: int):
+def make_planes(kind: str, size: int, count: int, seed: int, side: int | None = None):
     if kind == "oblique":
-        return synthetic.oblique_rectangles(size, count, seed)
+        return synthetic.oblique_rectangles(size, count, seed, None if side is None else side + 0.5)
     rng = np.random.default_rng(seed)
     sweeps = [plane_gen.axial_sweep((size,) * 3, axis) for axis in range(3)]
     picks = [(rng.integers(3), rng.integers(size)) for _ in range(count)]
@@ -56,6 +57,7 @@ def main() -> None:
     parser.add_argument("--interp", nargs="+", default=["nearest"], choices=[m.value for m in Interpolation])
     parser.add_argument("--frames", type=int, default=200)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--side", type=int, default=None, help="side of the oblique planes in voxels")
     parser.add_argument("--csv", action="store_true", help="machine-readable output")
     args = parser.parse_args()
 
@@ -63,7 +65,7 @@ def main() -> None:
     for dtype in args.dtype:
         volume = Volume(synthetic.random_volume((args.size,) * 3, getattr(np, dtype), seed=args.seed))
         for kind in args.planes:
-            planes = make_planes(kind, args.size, args.frames, args.seed)
+            planes = make_planes(kind, args.size, args.frames, args.seed, args.side)
             for backend in args.backend:
                 for interp in args.interp:
                     times = measure(make_projector(backend, Interpolation(interp)), volume, planes)

@@ -73,10 +73,10 @@ Measured on an i7-13620H (16 threads), Python 3.14, random 500^3 uint8 volume, 5
 
 | Backend | Nearest (default) | Trilinear (optional) |
 |---|---|---|
-| Numba (used when installed) | about 840 fps (1950 on axis-aligned planes) | about 410 fps |
-| NumPy (fallback, 4 threads) | about 150 fps | 16 to 35 fps |
+| Numba (used when installed) | about 1400 fps (3400 on axis-aligned planes) | about 610 fps |
+| NumPy (fallback, 4 threads) | about 390 fps | 35 to 65 fps |
 
-The requirement is 100+ fps, with 30 fps as the hard minimum. Numba stays above 100 fps even on a single thread (169 fps). NumPy with trilinear sampling is below the target; the CLI prints a warning when that combination is chosen. The NumPy figures depend on core count.
+The requirement is 100+ fps, with 30 fps as the hard minimum. Numba stays above 100 fps even on a single thread (295 fps) and on 901 x 901 images (847 fps). NumPy with trilinear sampling is below the target; the CLI prints a warning when that combination is chosen. The NumPy figures depend on core count. Speed against image size: [docs/experiment/speed_by_size.png](docs/experiment/speed_by_size.png). Numbers vary between runs of the same laptop by up to 40 percent.
 
 Demo videos made with `Ex0.py` (details in [docs/EXPERIMENT.md](docs/EXPERIMENT.md)):
 [MRHead axial sweep](docs/experiment/mrhead_sweep.mp4),

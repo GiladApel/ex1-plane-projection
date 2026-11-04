@@ -1,6 +1,9 @@
-"""Run the full benchmark matrix and write docs/experiment/benchmark.md.
+"""Run the full benchmark matrix and write docs/experiment/benchmark.md and docs/experiment/speed_by_size.png.
 
 python scripts/bench_matrix.py [--size 500] [--frames 100]
+
+Run on mains power: on battery the laptop throttles and the numbers drop by up to 5 times.
+The plot needs matplotlib (the "figures" extra).
 """
 import argparse
 import csv
@@ -14,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BENCH = ROOT / "scripts" / "bench.py"
 THREADS = [1, 2, 4, 8, 16]
+SIDES = [100, 200, 300, 400, 500, 700, 900]
 
 
 def run_bench(extra: list[str], env_threads: int | None = None) -> list[dict]:
@@ -44,6 +48,15 @@ def main() -> None:
             ["--dtype", "uint8", "uint16", "uint32", "--planes", "oblique", "axis", "--backend", backend,
              "--interp", "nearest", "trilinear", "--size", str(args.size), "--frames", str(frames)]
         )
+    by_size = []
+    for side in SIDES:
+        for backend, frames in (("numba", args.frames), ("numpy", max(10, args.frames // 8))):
+            for row in run_bench(["--backend", backend, "--interp", "nearest", "trilinear", "--side", str(side),
+                                  "--size", str(args.size), "--frames", str(frames)]):
+                row["side"] = str(side + 1)
+                by_size.append(row)
+    plot_by_size(by_size, ROOT / "docs" / "experiment" / "speed_by_size.png", args.size)
+
     scaling = []
     for threads in THREADS:
         row = run_bench(["--backend", "numba", *common], threads)[0]
@@ -61,6 +74,13 @@ Projection time only (plane in, matrix out). Numba runs use {args.frames} planes
 {table(matrix, ["backend", "interp", "dtype", "planes", "median_fps", "p95_ms", "min_fps"],
        ["Backend", "Sampling", "dtype", "Planes", "Median fps", "p95 ms", "Slowest frame fps"])}
 
+## Image size (uint8, oblique squares through the center; image of side x side pixels)
+
+![Median fps against image side, per backend and sampling](speed_by_size.png)
+
+{table(by_size, ["side", "backend", "interp", "median_fps", "p95_ms"],
+       ["Image side", "Backend", "Sampling", "Median fps", "p95 ms"])}
+
 ## Numba thread scaling (uint8, nearest, oblique)
 
 {table(scaling, ["threads", "median_fps", "p95_ms"], ["Threads", "Median fps", "p95 ms"])}
@@ -68,6 +88,37 @@ Projection time only (plane in, matrix out). Numba runs use {args.frames} planes
     target = ROOT / "docs" / "experiment" / "benchmark.md"
     target.write_text(text, encoding="utf-8")
     print(f"wrote {target}")
+
+
+def plot_by_size(rows: list[dict], path: Path, size: int) -> None:
+    """Median fps against image side, one line per backend and sampling, with the 30 and 100 fps targets."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    figure, axis = plt.subplots(figsize=(7, 4.2))
+    styles = {"numba": "-", "numpy": "--"}
+    colors = {"nearest": "#1f77b4", "trilinear": "#ff7f0e"}
+    for backend in ("numba", "numpy"):
+        for interp in ("nearest", "trilinear"):
+            points = [(int(r["side"]), float(r["median_fps"])) for r in rows
+                      if r["backend"] == backend and r["interp"] == interp]
+            if points:
+                sides, fps = zip(*points, strict=True)
+                axis.plot(sides, fps, styles[backend], marker="o", color=colors[interp], label=f"{backend}, {interp}")
+    for target, label in ((100, "100 fps target"), (30, "30 fps minimum")):
+        axis.axhline(target, color="gray", linewidth=0.8, linestyle=":")
+        axis.text(SIDES[0], target * 1.08, label, ha="left", fontsize=8, color="gray")
+    axis.set_yscale("log")
+    axis.set_xlabel("image side (pixels)")
+    axis.set_ylabel("median frames per second")
+    axis.set_title(f"Projection speed against image size ({size}^3 uint8 volume, oblique planes)", fontsize=10)
+    axis.grid(True, which="both", alpha=0.25)
+    axis.legend(fontsize=8)
+    figure.tight_layout()
+    figure.savefig(path, dpi=120, facecolor="white")
+    print(f"wrote {path}")
 
 
 if __name__ == "__main__":
