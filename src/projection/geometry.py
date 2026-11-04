@@ -11,6 +11,8 @@ from .errors import InvalidInputError, NotIsoscelesError
 REL_TOL = 1e-3
 COLLINEAR_TOL = 1e-6
 TRAPEZOID_ORDER = "expected point order a', b, a'', c, where a'b and a''c are the equal legs"
+# H.264 encoders and players reject larger frames, and one oversized plane would enlarge every frame of the video.
+MAX_IMAGE_SIDE = 4096
 
 
 @dataclass(frozen=True, eq=False)
@@ -31,6 +33,10 @@ class Plane:
     def __init__(self, a1: np.ndarray, b1: np.ndarray, a2: np.ndarray, b2: np.ndarray) -> None:
         self._corners = (a1, b1, a2, b2)
         self._rails = _build_rails(a1, b1, a2, b2)
+        if max(self._rails.H, self._rails.W) > MAX_IMAGE_SIDE:
+            raise InvalidInputError(
+                f"the image would be {self._rails.H} x {self._rails.W} pixels, more than {MAX_IMAGE_SIDE} on a side"
+            )
 
     def rails(self) -> Rails:
         return self._rails
@@ -70,7 +76,6 @@ class Trapezoid(Plane):
         d1, d2 = np.linalg.norm(rail1), np.linalg.norm(rail2)
         _check_edge(d1, "a'b")
         _check_edge(d2, "a''c")
-        _check_isosceles(d1, d2, force, hint=TRAPEZOID_ORDER)
         top, bottom = a2 - a1, c - b
         top_len, bottom_len = np.linalg.norm(top), np.linalg.norm(bottom)
         if top_len == 0 and bottom_len == 0:
@@ -82,6 +87,9 @@ class Trapezoid(Plane):
             raise InvalidInputError("trapezoid points are not coplanar")
         if top_len > 0 and bottom_len > 0 and np.linalg.norm(np.cross(top, bottom)) > REL_TOL * top_len * bottom_len:
             raise InvalidInputError(f"trapezoid sides a'a'' and bc are not parallel ({TRAPEZOID_ORDER})")
+        if top_len > 0 and bottom_len > 0 and np.dot(top, bottom) < 0:
+            raise InvalidInputError(f"trapezoid legs a'b and a''c cross each other ({TRAPEZOID_ORDER})")
+        _check_isosceles(d1, d2, force, hint=TRAPEZOID_ORDER)
         super().__init__(a1, b, a2, c)
 
 

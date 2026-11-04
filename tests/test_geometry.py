@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from projection.errors import InvalidInputError
-from projection.geometry import Trapezoid, Triangle, plane_from_points
+from projection.errors import InvalidInputError, NotIsoscelesError
+from projection.geometry import MAX_IMAGE_SIDE, Trapezoid, Triangle, plane_from_points
 
 
 def test_isosceles_triangle_size():
@@ -85,16 +85,33 @@ def test_trapezoid_rejects_non_parallel_sides():
 
 
 def test_trapezoid_rejects_non_isosceles():
-    with pytest.raises(InvalidInputError, match="isosceles"):
-        Trapezoid((2, 0, 0), (0, 10, 0), (8, 0, 0), (10, 20, 0))
+    with pytest.raises(NotIsoscelesError, match="isosceles.*expected point order a', b, a'', c"):
+        Trapezoid((2, 0, 0), (0, 10, 0), (8, 0, 0), (12, 10, 0))
 
 
 def test_trapezoid_in_wrong_point_order_names_the_expected_order():
     # a', a'', b, c instead of a', b, a'', c
-    with pytest.raises(InvalidInputError, match="isosceles.*expected point order a', b, a'', c"):
-        Trapezoid((2, 0, 0), (8, 0, 0), (0, 10, 0), (10, 10, 0))
-    with pytest.raises(InvalidInputError, match="not parallel.*expected point order"):
-        Trapezoid((2, 0, 0), (8, 0, 0), (0, 10, 0), (10, 10, 0), force=True)
+    for force in (False, True):
+        with pytest.raises(InvalidInputError, match="not parallel.*expected point order a', b, a'', c"):
+            Trapezoid((2, 0, 0), (8, 0, 0), (0, 10, 0), (10, 10, 0), force=force)
+
+
+def test_trapezoid_with_crossing_legs_is_rejected():
+    # a' and a'' swapped: top and base are parallel but point opposite ways, so the legs cross
+    with pytest.raises(InvalidInputError, match="legs a'b and a''c cross"):
+        Trapezoid((8, 0, 0), (0, 10, 0), (2, 0, 0), (10, 10, 0))
+
+
+def test_structural_errors_come_before_the_isosceles_check():
+    # not isosceles and not coplanar: the structural error is reported, not the isosceles one
+    with pytest.raises(InvalidInputError, match="not coplanar"):
+        Trapezoid((2, 0, 0), (0, 10, 0), (8, 0, 3), (12, 10, 0))
+
+
+def test_image_larger_than_the_video_limit_is_rejected():
+    with pytest.raises(InvalidInputError, match=r"would be 7072 x 10001 pixels, more than 4096"):
+        Triangle((0, 0, 0), (-5000, 5000, 0), (5000, 5000, 0), force=True)
+    assert max(Triangle((0, 0, 0), (-1000, 2000, 0), (1000, 2000, 0)).shape) <= MAX_IMAGE_SIDE
 
 
 def test_triangle_isosceles_error_has_no_order_hint():
