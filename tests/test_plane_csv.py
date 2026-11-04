@@ -52,11 +52,13 @@ def test_excel_csv_in_a_windows_code_page_is_read(tmp_path):
     assert [p.tolist() for p in planes[0].corners] == [p.tolist() for p in expected.corners]
 
 
-def test_binary_file_is_reported_not_crashed_on(tmp_path):
+@pytest.mark.parametrize("content", [bytes(range(256)), "1,2,3\n".encode("utf-16")], ids=["binary", "utf-16"])
+def test_a_file_with_nul_bytes_is_not_a_csv_on_any_python(tmp_path, content):
+    """Python 3.10's csv module fails on NUL bytes and 3.11+ reads them, so they are rejected before csv sees them."""
     path = tmp_path / "binary.csv"
-    path.write_bytes(bytes(range(256)))
-    rows = read_planes(path)
-    assert rows and all(row.plane is None and row.error for row in rows)
+    path.write_bytes(content)
+    with pytest.raises(InvalidInputError, match="not a text CSV file"):
+        read_planes(path)
 
 
 def test_bad_value_reports_line_number(tmp_path):

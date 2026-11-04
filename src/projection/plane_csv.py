@@ -74,7 +74,8 @@ def read_planes(
                warn given     -> report "<path>:<line>: ..." through warn and keep it
                otherwise      -> a bad plane
         5. a row or plane that cannot be built becomes PlaneRow(line, None, reason) and reading goes on
-        6. a missing file, a file without rows, or point rows that cannot be grouped into planes
+        6. a missing file, a binary or UTF-16 file (NUL bytes), a file without rows, or point rows that cannot be
+           grouped into planes
            raise InvalidInputError: no plane can be told apart from the next
     """
     path = Path(path)
@@ -88,6 +89,8 @@ def read_planes(
         # Excel saves "CSV (Comma delimited)" in the system's code page (Windows-1255 on Hebrew Windows). The numbers
         # are ASCII in every such code page, so a byte-for-byte decoding reads them; only header text is garbled.
         text = raw.decode("latin-1")
+    if "\0" in text:
+        raise InvalidInputError(f"{path}: not a text CSV file (it contains NUL bytes); save it as CSV UTF-8")
     rows = [
         (n, cells)
         for n, row in enumerate(csv.reader(io.StringIO(text, newline="")), start=1)
