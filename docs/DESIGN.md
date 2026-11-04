@@ -56,6 +56,8 @@ classDiagram
     class Projector {
         <<abstract>>
         +project(volume, plane, out) ndarray
+        +close()
+        +__enter__() / __exit__()
         #_prepare_out()
     }
     Projector <|-- ReferenceProjector
@@ -85,6 +87,8 @@ classDiagram
 ## Key design decisions
 
 **One abstraction for triangle and trapezoid.** A plane is reduced to two *rails*: a start point and a step vector each, plus the image size (`Rails`). The projector never asks which shape it got. A triangle is a trapezoid whose top edge has length zero. Adding another planar shape only needs a new subclass that produces rails.
+
+**Engines have a lifecycle.** `Projector` is a context manager: `with make_projector(...) as projector:` releases what the engine holds when the block ends, also on an error. Only the NumPy engine holds anything (its thread pool and cached buffers), so `close()` is a no-op elsewhere. A closed engine is not broken: it re-creates its pool on the next call, so code that closes too early is slower, not wrong. The CLI uses the engine in a `with` block.
 
 **`Projector` as the extension point.** Backends implement `project(volume, plane, out)`. `make_projector("auto")` picks Numba when it can be imported and falls back to NumPy, so the demo runs everywhere. A new backend (for example a GPU one) is a subclass plus one line in `make_projector`.
 

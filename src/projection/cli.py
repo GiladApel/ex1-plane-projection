@@ -97,7 +97,7 @@ def run(args: argparse.Namespace) -> int:
     projected = 0
     failed = False
     started = time.perf_counter()
-    with Mp4Writer(args.mp4, args.fps, composer.height, composer.width) as writer:
+    with projector, Mp4Writer(args.mp4, args.fps, composer.height, composer.width) as writer:
         for frame, row in enumerate(rows, start=1):
             if row.plane is None:
                 writer.append(composer.error_frame())

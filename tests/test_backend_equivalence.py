@@ -167,3 +167,26 @@ def test_numpy_result_does_not_depend_on_thread_count(mode, threads):
 def test_numpy_rejects_zero_threads():
     with pytest.raises(ValueError, match="threads"):
         NumpyProjector(threads=0)
+
+
+@pytest.mark.parametrize("backend", [ReferenceProjector, *BACKENDS])
+def test_every_backend_is_a_context_manager(backend):
+    volume = Volume(synthetic.random_volume((24, 24, 24), np.uint8, seed=4))
+    plane = Triangle((12, 2, 12), (2, 22, 12), (22, 22, 12))
+    with backend(Interpolation.NEAREST) as projector:
+        image = projector.project(volume, plane)
+    assert np.array_equal(image, ReferenceProjector().project(volume, plane))
+
+
+def test_closing_the_numpy_engine_stops_its_threads_and_it_stays_usable():
+    volume = Volume(synthetic.random_volume((40, 40, 40), np.uint16, seed=11))
+    plane = synthetic.random_plane(np.random.default_rng(5), (19.5, 19.5, 19.5), 41.5, 30.0, 12.0)
+    expected = ReferenceProjector().project(volume, plane)
+    with NumpyProjector(threads=3, min_parallel_cells=0) as projector:
+        assert np.array_equal(projector.project(volume, plane), expected)
+        pool = projector._pool
+        assert pool is not None
+    assert projector._pool is None and pool._shutdown
+    projector.close()
+    assert np.array_equal(projector.project(volume, plane), expected)
+    projector.close()

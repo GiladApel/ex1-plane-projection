@@ -131,6 +131,7 @@ The open points of the assignment are listed in [section 6](#6-assumptions-to-co
 | **NFR2** | **Correctness**: with nearest sampling, the NumPy and Numba backends shall produce images identical, pixel for pixel, to the reference backend. | Must |
 | **NFR3** | **Robustness**: no input file shall make the program end with a Python traceback. A bad whole input gives a one-line error and exit code 2; a bad plane gives a warning and an error frame, and the run goes on (FR3.6, FR9.2). | Must |
 | **NFR4** | **Maintainability**: each backend and sampler shall sit behind one interface; core functions shall carry English pseudo-code in their docstrings; the code shall pass `ruff` and `mypy`. | Should |
+| NFR4.1 | Each projection engine shall release the resources it holds (threads, buffers) through `close()` or at the end of a `with` block, and shall stay usable after closing. | Should |
 | **NFR5** | **Portability**: the program shall run on Python 3.10 to 3.14, with and without Numba installed. | Should |
 | **NFR6** | **Determinism**: the same inputs shall give the same images on every run, backend and thread count. | Should |
 
@@ -244,5 +245,6 @@ Each requirement, where it is implemented, and the tests that verify it. Test fi
 | NFR2 | same arithmetic in all backends (ALGORITHM section 4) | `test_backend_equivalence::test_random_planes_match_reference` (Hypothesis), `::test_triangle_matches_reference`, `::test_half_integer_coordinates_lock_the_rounding_rule` |
 | NFR3 | `cli.main` (catches `InvalidInputError`), `cli.run` (error frames) | the error tests of `test_cli` (exit code and one `error:` line, or warnings and error frames) |
 | NFR4 | `Projector` interface, `Interpolation` | `ruff check .` and `mypy` in CI; review of [DESIGN.md](DESIGN.md) |
+| NFR4.1 | `Projector.close`, `__enter__`, `__exit__`; `NumpyProjector.close`; `cli.run` | `test_backend_equivalence::test_every_backend_is_a_context_manager`, `::test_closing_the_numpy_engine_stops_its_threads_and_it_stays_usable` |
 | NFR5 | `pyproject.toml` (Numba optional) | CI matrix: Python 3.10 to 3.14, each with and without Numba |
 | NFR6 | closed-form positions (D7), fixed summation order | `test_backend_equivalence::test_numpy_result_does_not_depend_on_thread_count`; seeded synthetic data |

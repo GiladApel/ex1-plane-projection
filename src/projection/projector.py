@@ -14,7 +14,20 @@ from .volume import Volume
 
 
 class Projector(ABC):
-    """Projects a Volume onto a Plane; returns an (H, W) image of the volume's dtype."""
+    """Projects a Volume onto a Plane; returns an (H, W) image of the volume's dtype.
+
+    Use it in a with block, or call close() when done, to release what the engine holds (the NumPy engine's
+    threads). A closed engine can still be used; it acquires its resources again on the next call.
+    """
+
+    def close(self) -> None:  # noqa: B027 - not abstract: engines without resources need no override
+        """Release held resources. Safe to call more than once."""
+
+    def __enter__(self) -> Projector:
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()
 
     @abstractmethod
     def project(self, volume: Volume, plane: Plane, out: np.ndarray | None = None) -> np.ndarray:
@@ -99,6 +112,13 @@ class NumpyProjector(Projector):
         if self._threads > 1 and height * columns >= self._min_parallel_cells:
             chunks = min(height, self._threads)
         return [height * i // chunks for i in range(chunks + 1)]
+
+    def close(self) -> None:
+        """Stop the worker threads and drop the cached buffers."""
+        if self._pool is not None:
+            self._pool.shutdown(wait=True)
+            self._pool = None
+        self._buffers.clear()
 
     def _executor(self) -> ThreadPoolExecutor:
         if self._pool is None:
