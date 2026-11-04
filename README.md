@@ -98,7 +98,12 @@ pip install -r demo/requirements.txt
 streamlit run demo/app.py
 ```
 
-Sliders move, turn and size a triangle or trapezoid inside MRHead (downloaded on first use) or a synthetic volume. The page shows the plane in the volume's box, its projected image with the size and the time per plane, and the plane as a row of the lecturer's CSV format, ready to paste into a file for `Ex0.py`. The live version runs this file on Streamlit Community Cloud; after a period without visitors it sleeps and takes about a minute to wake up.
+Two tabs:
+
+- **Explore.** Sliders move, turn and size a triangle or trapezoid inside MRHead (downloaded on first use) or a synthetic volume. The page shows the plane in the volume's box, its projected image with the size and the time per plane, and the plane as a row of the lecturer's CSV format, ready to paste into a file for `Ex0.py`.
+- **How it works.** A small plane in a 16^3 volume, drawn in 3D with its two rails, every row and every sample point. Clicking a pixel of the image shows each step of the algorithm for that pixel with this plane's numbers: the row's end points a1 and a2, its length d12, the centering offset, the sample index x1, the point p, and the nearest voxel or the 8 trilinear corners with their weights. The page checks the result against the value the reference backend wrote.
+
+The live version runs this file on Streamlit Community Cloud; after a period without visitors it sleeps and takes about a minute to wake up.
 
 ## Design in short
 
@@ -140,7 +145,7 @@ The assignment leaves these points open; the choices below are documented in [do
 ## Tests
 
 ```
-pytest                 # 303 fast tests (the real-data ones need python scripts/download_data.py MRHead)
+pytest                 # 312 fast tests (the real-data ones need python scripts/download_data.py MRHead)
 pytest -m slow         # performance tests (500^3 volume); pytest -m portable runs the subset used in CI
 ```
 CI runs the fast tests, including those on the real MRHead scan, on Python 3.10 to 3.14, each with and without Numba installed, `ruff check .`, `mypy`, and the machine-independent speed tests (Numba thread scaling, Numba versus NumPy).

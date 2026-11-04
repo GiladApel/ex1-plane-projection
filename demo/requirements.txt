@@ -4,3 +4,4 @@ numba
 pynrrd
 pillow
 matplotlib
+plotly

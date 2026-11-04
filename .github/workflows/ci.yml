@@ -59,6 +59,23 @@ jobs:
       - run: ruff check .
       - run: mypy
 
+  demo:
+    runs-on: ubuntu-latest
+    name: interactive demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" -r demo/requirements.txt
+      - name: Cache the MRHead scan
+        uses: actions/cache@v4
+        with:
+          path: data/MRHead.nrrd
+          key: mrhead-cc211f0dfd9a05ca3841ce1141b292898b2dd2d3f08286affadf823a7e58df93
+      - run: python scripts/download_data.py MRHead
+      - run: pytest tests/test_demo.py -q
+
   speed:
     runs-on: ubuntu-latest
     name: speed ratios
