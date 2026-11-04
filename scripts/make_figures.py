@@ -1,6 +1,7 @@
 """Draw the figures of docs/ALGORITHM.md from the real implementation.
 
 python scripts/make_figures.py        # needs matplotlib: pip install -e ".[figures]"
+python scripts/make_figures.py --gif  # docs/experiment/preview.gif from the rotation video, for the README
 
 Writes docs/algorithm_overview.png and docs/algorithm_changes.png. Every number and image in the
 figures is computed with the project's own classes, and the script stops with an assertion error if
@@ -495,7 +496,32 @@ def worked_example_table(rows=(0, 1, 3, 5, 10, 15)):
     return "\n".join(lines)
 
 
+def preview_gif(video: Path, path: Path, step: int = 4, side: int = 200, fps: int = 10, keep: float = 0.72) -> None:
+    """Every step-th frame of an experiment video, cropped to its central `keep` part (the rotating plane's corners
+    are mostly outside the head), scaled to side pixels, as a looping gray GIF for the README."""
+    import imageio.v2 as imageio
+    from PIL import Image
+
+    reader = imageio.get_reader(str(video))
+    try:
+        frames = [frame for i, frame in enumerate(reader) if i % step == 0]
+    finally:
+        reader.close()
+    h, w = frames[0].shape[:2]
+    top, left = round(h * (1 - keep) / 2), round(w * (1 - keep) / 2)
+    images = [
+        Image.fromarray(frame[top:h - top, left:w - left, 0]).resize((side, side), Image.Resampling.LANCZOS)
+        for frame in frames
+    ]
+    images[0].save(path, save_all=True, append_images=images[1:], duration=round(1000 / fps), loop=0, optimize=True)
+    print(f"wrote {path.relative_to(ROOT)}: {len(images)} frames, {path.stat().st_size / 1e6:.2f} MB")
+
+
 def main():
+    if "--gif" in sys.argv:
+        experiment = ROOT / "docs" / "experiment"
+        preview_gif(experiment / "mrhead_rotate.mp4", experiment / "preview.gif")
+        return
     figure_overview(ROOT / "docs" / "algorithm_overview.png")
     figure_changes(ROOT / "docs" / "algorithm_changes.png")
     print("wrote docs/algorithm_overview.png and docs/algorithm_changes.png\n")

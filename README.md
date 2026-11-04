@@ -6,7 +6,9 @@ Given a 3D raster volume `M` (NRRD, uint8/16/32) and a plane defined by 3 points
 
 Course: Introduction to Software Engineering, Ariel University. Assignment: Ex1.
 
-![MRHead: axial slice, sagittal and coronal cuts from one rotating plane; CTChest cuts](docs/experiment/preview.png)
+![A plane turning through the MRHead volume, one frame of the demo video every 8 degrees](docs/experiment/preview.gif)
+
+*A plane turning 360 degrees through the head, made by `Ex0.py` ([full video](docs/experiment/mrhead_rotate.mp4), [more runs](docs/EXPERIMENT.md)).*
 
 ## Problem
 
