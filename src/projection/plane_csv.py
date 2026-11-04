@@ -6,19 +6,24 @@ from pathlib import Path
 
 import numpy as np
 
-from .errors import InvalidInputError
+from .errors import InvalidInputError, NotIsoscelesError
 from .geometry import Plane, plane_from_points
 
 POINT_COUNTS = {9: 3, 12: 4}
+Warn = Callable[[str], None]
 
 
 def parse_planes(
     path: str | Path,
     to_voxel: Callable[[np.ndarray], np.ndarray] | None = None,
     force: bool = False,
+    warn: Warn | None = None,
 ) -> list[Plane]:
-    """Read the planes of a CSV file. Two layouts are accepted:
+    """Read the planes of a CSV file. Three layouts are accepted:
 
+    counted:        the lecturer's example. Every row is the number of points (3 or 4) followed by their
+                    9 or 12 coordinates; a triangle leaves the fourth point's cells empty. Triangles and
+                    trapezoids may be mixed. A header such as "Number of Points (3 or 4),x1,..." is skipped.
     plane per row:  every row has 9 numbers (triangle) or 12 numbers (trapezoid); one plane per row
     point per row:  every row has 3 numbers (x, y, z); 3 rows form a triangle, 4 rows a trapezoid.
                     Planes are separated by blank lines; without blank lines the row count decides
@@ -30,12 +35,17 @@ def parse_planes(
         2. if the first row has a non-empty, non-numeric cell: treat it as a header and drop it
         3. if the first row has 3 cells: point-per-row layout
                split the rows into groups of 3 or 4, build one plane per group
-           else: plane-per-row layout
-               for each row (keeping its file line number):
-                   parse every cell as a float; require 9 or 12 cells, the same for all rows
-                   reshape to points, apply to_voxel if given, build and validate the plane
-        4. any failure raises InvalidInputError prefixed with "<path>:<line>:"
-        5. require at least one plane
+           else, for each row (keeping its file line number), parse every cell as a float:
+               counted layout (the first row is n followed by 3n numbers, n = 3 or 4):
+                   every row must be n followed by exactly 3n coordinates
+               plane-per-row layout: require 9 or 12 numbers, the same for all rows
+               reshape to points, apply to_voxel if given, build and validate the plane
+        4. a plane that is valid except that it is not isosceles:
+               force set      -> keep it
+               warn given     -> report "<path>:<line>: ..." through warn and keep it
+               otherwise      -> error
+        5. any other failure raises InvalidInputError prefixed with "<path>:<line>:"
+        6. require at least one plane
     """
     path = Path(path)
     if not path.is_file():
@@ -50,24 +60,27 @@ def parse_planes(
         raise InvalidInputError(f"{path}: no planes found")
 
     if len(rows[0][1]) == 3:
-        return [_plane_from_point_rows(path, group, to_voxel, force) for group in _group_point_rows(path, rows)]
-    return _planes_from_plane_rows(path, rows, to_voxel, force)
+        groups = _group_point_rows(path, rows)
+        return [_plane_from_point_rows(path, group, to_voxel, force, warn) for group in groups]
+    return _planes_from_plane_rows(path, rows, to_voxel, force, warn)
 
 
-def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool) -> list[Plane]:
+def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> list[Plane]:
     planes: list[Plane] = []
+    counted = _is_counted(rows[0][1])
     expected: int | None = None
     for line, row in rows:
         try:
-            values = _parse_row(row)
-            if expected is None:
-                expected = len(values)
-            elif len(values) != expected:
-                raise InvalidInputError(f"expected {expected} values like the first row, got {len(values)}")
+            values = _parse_row(row, counted)
+            if not counted:
+                if expected is None:
+                    expected = len(values)
+                elif len(values) != expected:
+                    raise InvalidInputError(f"expected {expected} values like the first row, got {len(values)}")
             points = values.reshape(-1, 3)
             if to_voxel is not None:
                 points = to_voxel(points)
-            planes.append(plane_from_points(points, force=force))
+            planes.append(_build_plane(points, force, warn, f"{path}:{line}"))
         except InvalidInputError as exc:
             raise InvalidInputError(f"{path}:{line}: {exc}") from exc
     return planes
@@ -118,7 +131,7 @@ def _group_point_rows(path: Path, rows: list) -> list[list]:
     return [rows[i:i + size] for i in range(0, n, size)]
 
 
-def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool) -> Plane:
+def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> Plane:
     first_line = rows[0][0]
     points = []
     for line, row in rows:
@@ -133,9 +146,19 @@ def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool) -> Pla
     try:
         if to_voxel is not None:
             corners = to_voxel(corners)
-        return plane_from_points(corners, force=force)
+        return _build_plane(corners, force, warn, f"{path}:{first_line}")
     except InvalidInputError as exc:
         raise InvalidInputError(f"{path}:{first_line}: {exc}") from exc
+
+
+def _build_plane(points: np.ndarray, force: bool, warn: Warn | None, where: str) -> Plane:
+    try:
+        return plane_from_points(points, force=force)
+    except NotIsoscelesError as exc:
+        if warn is None:
+            raise
+        warn(f"{where}: {exc}; projected as given")
+        return plane_from_points(points, force=True)
 
 
 def _drop_trailing_empty(row: list[str]) -> list[str]:
@@ -155,11 +178,28 @@ def _is_header(row: list[str]) -> bool:
     return False
 
 
-def _parse_row(row: list[str]) -> np.ndarray:
+def _is_counted(row: list[str]) -> bool:
+    """True for a row of the counted layout: n (3 or 4) followed by 3n numbers."""
+    try:
+        count = float(row[0])
+    except ValueError:
+        return False
+    return count in (3, 4) and len(row) == 1 + 3 * int(count)
+
+
+def _parse_row(row: list[str], counted: bool) -> np.ndarray:
+    """The coordinates of one plane row; in the counted layout the leading point count is checked and dropped."""
     try:
         values = np.array([float(c) for c in row], dtype=np.float64)
     except ValueError as exc:
         raise InvalidInputError("non-numeric value") from exc
+    if counted:
+        count = values[0]
+        if count not in (3, 4):
+            raise InvalidInputError(f"the number of points must be 3 or 4, got {count:g}")
+        if len(values) - 1 != 3 * int(count):
+            raise InvalidInputError(f"{int(count)} points need {3 * int(count)} coordinates, got {len(values) - 1}")
+        return values[1:]
     if len(values) not in POINT_COUNTS:
         raise InvalidInputError(f"expected 9 or 12 values, got {len(values)}")
     return values

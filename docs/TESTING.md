@@ -17,10 +17,10 @@
 | Correctness | Reference projector against independent answers: axis-aligned planes equal NumPy slices for all 6 axis permutations and 3 dtypes; exact pixel counts on a gradient; oblique plane against a closed form; apex row; plane fully and partly outside; no holes in rows; trilinear weights and uint32 overflow safety; `out` buffer handling | `test_reference_projector.py` |
 | Equivalence | NumPy (single and forced multi-chunk) and Numba equal the reference exactly: Hypothesis over random and axis-aligned planes, all dtypes, both samplers; half-integer coordinates that lock the rounding rule; thread-count independence (1, 2, 3, 7); backend selection and fallback when Numba is missing | `test_backend_equivalence.py` |
 | Rendering | Intensity window, canvas centering and even sizing, video writer checks | `test_render.py` |
-| End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, point-per-row CSV with one or several planes, `--world`, `--force`, error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
+| End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, the lecturer's example sheet (counted layout, mixed shapes, one non-isosceles triangle that gives a warning), point-per-row CSV with one or several planes, `--world`, `--force`, error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
 | Performance | 500^3 uint8, 40 random oblique planes, best of 3 medians. Absolute floors: Numba nearest 500 fps, Numba trilinear 250, NumPy nearest 100 (about half of the measured speed). Portable: Numba on all threads at least 3x its 1-thread speed (1.5x on 4-thread machines), Numba at least 2x NumPy. End to end: the demo on 180 frames of 446x446 at 100+ fps projection and 30+ fps including encoding. Run with `pytest -m slow` | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-209 tests: 203 in the default run and 6 slow ones (2 of them portable, also run in CI).
+219 tests: 213 in the default run and 6 slow ones (2 of them portable, also run in CI).
 
 ## Demo testing
 
@@ -37,7 +37,7 @@ Video content is checked by decoding the mp4 and comparing frame counts, sizes a
 |---|---|
 | FR1 NRRD loading | `test_volume_io.py`, `test_cli.py` (non-3D file) |
 | FR2 CSV parsing | `test_plane_csv.py`, `test_cli.py` (bad CSV, point-per-row) |
-| FR3 plane validation | `test_geometry.py`, `test_plane_csv.py` (line numbers), `test_cli.py` (`--force`) |
+| FR3 plane validation | `test_geometry.py`, `test_plane_csv.py` (line numbers, non-isosceles warning), `test_cli.py` (warning and `--force`) |
 | FR4 projection | `test_reference_projector.py`, `test_backend_equivalence.py` |
 | FR5 outside the volume | `test_reference_projector.py`, `test_backend_equivalence.py`, `test_cli.py` |
 | FR6 sampling modes | `test_reference_projector.py`, `test_backend_equivalence.py` |
@@ -71,7 +71,7 @@ Statement coverage of the package is 90 percent (`pytest --cov=projection`). Two
 ## Running
 
 ```
-pytest                 # 203 tests, about 15 seconds
+pytest                 # 213 tests, about 15 seconds
 pytest -m slow         # all performance tests, about 20 seconds and about 150 MB of memory (run on mains power)
 pytest -m portable     # only the machine-independent speed tests, as in CI
 pytest --cov=projection --cov-report=term-missing

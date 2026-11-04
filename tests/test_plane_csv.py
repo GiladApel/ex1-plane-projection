@@ -65,6 +65,63 @@ def test_force_skips_isosceles_check(tmp_path):
     assert len(parse_planes(write(tmp_path, "0,0,0,10,0,0,0,6,0\n"), force=True)) == 1
 
 
+def test_non_isosceles_plane_is_kept_with_a_warning(tmp_path):
+    warnings = []
+    planes = parse_planes(write(tmp_path, f"{TRI}\n0,0,0,10,0,0,0,6,0\n"), warn=warnings.append)
+    assert len(planes) == 2
+    assert len(warnings) == 1 and "planes.csv:2: plane is not isosceles" in warnings[0]
+    assert "projected as given" in warnings[0]
+
+
+def test_force_silences_the_warning(tmp_path):
+    warnings = []
+    parse_planes(write(tmp_path, "0,0,0,10,0,0,0,6,0\n"), force=True, warn=warnings.append)
+    assert warnings == []
+
+
+def test_warning_does_not_hide_other_plane_errors(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":1: .*collinear"):
+        parse_planes(write(tmp_path, "0,0,0,5,5,5,10,10,10\n"), warn=lambda message: None)
+
+
+COUNTED_TRI = "3,5,0,0,0,10,0,10,10,0,,,"
+COUNTED_TRAP = "4,2,0,0,0,10,0,8,0,0,10,10,0"
+
+
+def test_counted_layout_mixes_triangles_and_trapezoids(tmp_path):
+    header = "Number of Points (3 or 4),x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4"
+    planes = parse_planes(write(tmp_path, f"{header}\n{COUNTED_TRI}\n{COUNTED_TRAP}\n{COUNTED_TRI}\n"))
+    assert [type(p) for p in planes] == [Triangle, Trapezoid, Triangle]
+
+
+def test_counted_layout_gives_the_same_planes_as_plain_rows(tmp_path):
+    counted = parse_planes(write(tmp_path, f"{COUNTED_TRI}\n{COUNTED_TRAP}\n"))
+    plain = parse_planes(write(tmp_path, f"{TRI}\n")) + parse_planes(write(tmp_path, f"{TRAP}\n"))
+    for a, b in zip(counted, plain, strict=True):
+        ra, rb = a.rails(), b.rails()
+        assert (ra.H, ra.W) == (rb.H, rb.W)
+        assert ra.A1.tolist() == rb.A1.tolist() and ra.A2.tolist() == rb.A2.tolist()
+
+
+def test_counted_layout_accepts_a_triangle_without_the_empty_cells(tmp_path):
+    assert isinstance(parse_planes(write(tmp_path, "3,5,0,0,0,10,0,10,10,0\n"))[0], Triangle)
+
+
+def test_counted_layout_count_must_match_the_coordinates(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":2: 4 points need 12 coordinates, got 9"):
+        parse_planes(write(tmp_path, f"{COUNTED_TRI}\n4,5,0,0,0,10,0,10,10,0,,,\n"))
+
+
+def test_counted_layout_count_must_be_3_or_4(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":2: the number of points must be 3 or 4, got 5"):
+        parse_planes(write(tmp_path, f"{COUNTED_TRI}\n5,5,0,0,0,10,0,10,10,0,1,1,1,2,2,2\n"))
+
+
+def test_counted_layout_empty_cell_inside_the_coordinates_is_rejected(tmp_path):
+    with pytest.raises(InvalidInputError, match=r":2: non-numeric"):
+        parse_planes(write(tmp_path, f"{COUNTED_TRI}\n3,5,0,,0,10,0,10,10,0,,,\n"))
+
+
 def test_header_only_file_rejected(tmp_path):
     with pytest.raises(InvalidInputError, match="no planes"):
         parse_planes(write(tmp_path, "a,b,c\n"))

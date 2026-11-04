@@ -149,12 +149,36 @@ def test_missing_output_directory(inputs, tmp_path, capsys):
     assert "output directory" in capsys.readouterr().err
 
 
-def test_non_isosceles_plane_needs_force(inputs, capsys):
+def test_non_isosceles_plane_is_projected_with_a_warning(inputs, capsys):
     nrrd_path, csv_path, mp4_path = inputs
-    csv_path.write_text("16,6,16, 6,26,16, 26,20,16\n")
-    assert main([str(nrrd_path), str(csv_path), str(mp4_path)]) == EXIT_INVALID
-    assert "isosceles" in capsys.readouterr().err
+    csv_path.write_text(f"{CENTER_PLANE}\n16,6,16, 6,26,16, 26,20,16\n")
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
+    err = capsys.readouterr().err
+    assert "warning: " in err and "planes.csv:2: plane is not isosceles" in err
+    assert read_frames(mp4_path).shape[0] == 2
     assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--force", "--backend", "numpy"]) == EXIT_OK
+    assert "warning" not in capsys.readouterr().err
+
+
+def test_lecturer_csv_format(tmp_path, capsys):
+    """The lecturer's example sheet: a point count column, a header, empty cells for a triangle's fourth point,
+    triangles and trapezoids mixed, and one triangle that is not isosceles (row 4)."""
+    nrrd_path = tmp_path / "volume.nrrd"
+    synthetic.save_nrrd(nrrd_path, synthetic.gradient((500, 8, 8), np.uint16))
+    csv_path = tmp_path / "lecturer.csv"
+    csv_path.write_text(
+        "Number of Points (3 or 4),x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4\n"
+        "3,200,200,0,0,200,400,400,200,400,,,\n"
+        "4,200,0,0,200,0,500,200,400,0,200,400,500\n"
+        "3,200,200,-30,-50,200,400,400,250,400,,,\n"
+        "4,200,50,0,200,0,500,200,350,0,200,400,500\n"
+    )
+    mp4_path = tmp_path / "out.mp4"
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
+    out, err = capsys.readouterr()
+    assert "wrote 4 frames" in out
+    assert err.count("warning: ") == 1 and "lecturer.csv:4: plane is not isosceles" in err
+    assert read_frames(mp4_path).shape[0] == 4
 
 
 def test_bad_arguments_exit_with_code_2(inputs):

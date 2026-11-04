@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .errors import InvalidInputError
+from .errors import InvalidInputError, NotIsoscelesError
 
 REL_TOL = 1e-3
 COLLINEAR_TOL = 1e-6
@@ -127,4 +127,4 @@ def _check_edge(length: float, name: str) -> None:
 def _check_isosceles(l1: float, l2: float, force: bool, hint: str = "") -> None:
     if not force and abs(l1 - l2) > REL_TOL * max(l1, l2):
         suffix = f" ({hint})" if hint else ""
-        raise InvalidInputError(f"plane is not isosceles: equal edges are {l1:.6g} and {l2:.6g}{suffix}")
+        raise NotIsoscelesError(f"plane is not isosceles: equal edges are {l1:.6g} and {l2:.6g}{suffix}")

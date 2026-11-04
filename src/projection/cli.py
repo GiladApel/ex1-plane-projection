@@ -27,15 +27,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "csv",
         type=Path,
-        help="planes, one frame each: one plane per row (9 numbers = triangle, 12 = trapezoid a',b,a'',c), "
-        "or one point per row (3 rows = triangle, 4 = trapezoid, planes separated by blank lines)",
+        help="planes, one frame each. One plane per row: the number of points (3 or 4) and then the coordinates "
+        "(the lecturer's format), or just 9 numbers (triangle a,b,c) or 12 (trapezoid a',b,a'',c). "
+        "Or one point per row: 3 rows = triangle, 4 = trapezoid, planes separated by blank lines",
     )
     parser.add_argument("mp4", type=Path, help="output video")
     parser.add_argument("--fps", type=float, default=15.0, help="video frame rate (default 15)")
     parser.add_argument("--interp", choices=[m.value for m in Interpolation], default="nearest")
     parser.add_argument("--backend", choices=BACKENDS, default="auto")
     parser.add_argument("--world", action="store_true", help="CSV points are NRRD world coordinates, not voxel indices")
-    parser.add_argument("--force", action="store_true", help="skip the isosceles check")
+    parser.add_argument("--force", action="store_true", help="accept non-isosceles planes without a warning")
     return parser
 
 
@@ -54,7 +55,7 @@ def run(args: argparse.Namespace) -> int:
 
     volume = load_nrrd(args.nrrd)
     to_voxel = volume.world_to_voxel if args.world else None
-    planes = parse_planes(args.csv, to_voxel=to_voxel, force=args.force)
+    planes = parse_planes(args.csv, to_voxel=to_voxel, force=args.force, warn=_warn)
 
     projector = make_projector(args.backend, Interpolation(args.interp))
     if isinstance(projector, NumpyProjector) and args.interp == Interpolation.TRILINEAR.value:
@@ -90,6 +91,10 @@ def run(args: argparse.Namespace) -> int:
         f"end-to-end {writer.frames / total:.0f} fps"
     )
     return EXIT_OK
+
+
+def _warn(message: str) -> None:
+    print(f"warning: {message}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:

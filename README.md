@@ -46,8 +46,13 @@ python Ex0.py file.nrrd file.csv file.mp4 [--fps 15] [--interp nearest|trilinear
                                           [--world] [--force]
 ```
 
-CSV formats (both give frames in row order, see SRS FR2):
+CSV formats (all give frames in row order, see SRS FR2). The first is the format of the [lecturer's example sheet](https://docs.google.com/spreadsheets/d/1Tfy1yMYhAJjRBA8ZpRp_07pZXqGtxWhWoP02yZW1FQE/edit):
 ```
+# counted: number of points (3 or 4), then the coordinates; a triangle leaves the fourth point empty
+Number of Points (3 or 4),x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4
+3,200,200,0,0,200,400,400,200,400,,,
+4,200,0,0,200,0,500,200,400,0,200,400,500
+
 # plane per row: 9 numbers = triangle (a, b, c), 12 numbers = trapezoid (a', b, a'', c); one frame per row
 128,5,60, 28,250,60, 228,250,60
 
@@ -60,7 +65,7 @@ CSV formats (both give frames in row order, see SRS FR2):
 28,250,70
 228,250,70
 ```
-Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. Bad input produces a one-line `error:` message and exit code 2.
+Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. Bad input produces a one-line `error:` message and exit code 2. A plane that is not isosceles is projected as given, with a `warning:` line naming its CSV line (`--force` silences it).
 
 ## Results
 
@@ -105,10 +110,10 @@ Also: [docs/DESIGN.md](docs/DESIGN.md) (architecture).
 
 ## Assumptions to confirm
 
-The assignment leaves three points open; the choices below are documented in [docs/SRS.md](docs/SRS.md) section 6 and are easy to change.
+The assignment leaves these points open; the choices below are documented in [docs/SRS.md](docs/SRS.md) section 6 and are easy to change.
 
 1. CSV coordinates are voxel indices (`--world` switches to NRRD world coordinates).
-2. A CSV is either one plane per row (9 or 12 numbers) or one point per row (3 rows per triangle, 4 per trapezoid, planes separated by blank lines). Both are accepted.
+2. The lecturer's example sheet defines the CSV format (a point count, then the coordinates); two simpler layouts are also accepted (SRS FR2).
 3. Nearest-neighbor sampling is the default reading of `v = M[p]`; trilinear is available with `--interp trilinear`.
 
 ## Known limitations
@@ -120,7 +125,7 @@ The assignment leaves three points open; the choices below are documented in [do
 ## Tests
 
 ```
-pytest                 # 203 fast tests
+pytest                 # 213 fast tests
 pytest -m slow         # performance tests (500^3 volume); pytest -m portable runs the subset used in CI
 ```
 CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed, `ruff check .`, `mypy`, and the machine-independent speed tests (Numba thread scaling, Numba versus NumPy).
