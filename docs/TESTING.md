@@ -65,7 +65,7 @@ The full matrix, from each requirement (FR1.1 to NFR6) to the module that implem
 
 ## Coverage and its limits
 
-Statement coverage of the package is 92 percent (`pytest --cov=projection`). Two caveats:
+Statement coverage of the package is 92 percent (`pytest --cov=projection`), and 98.5 percent (867 of 880 statements) without `kernels_numba.py`. Two caveats:
 - `kernels_numba.py` shows 11 percent because compiled code is invisible to the coverage tool. It is verified by the equivalence tests instead, which compare its output with the reference.
 - The remaining uncovered lines are error branches that need unusual files (for example a singular direction matrix).
 
