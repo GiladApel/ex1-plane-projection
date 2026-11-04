@@ -31,6 +31,36 @@ The program reads a 3D volume and a list of planes and writes a video with one f
 - **fps**: planes projected per second, counting the projection only (D16).
 - **Backend**: one of three interchangeable implementations of the projection: reference, NumPy, Numba.
 
+### 1.3.1 Data dictionary
+Every data item that crosses a module boundary or the program's interface. Space "voxel" means array indices (voxel `(i, j, k)` is the cube of side 1 centered on that point); "world" means the NRRD file's physical space (usually mm).
+
+| Item | Type | Space or unit | Allowed values | Produced by | Used by |
+|---|---|---|---|---|---|
+| NRRD file | file | | 3D, integer 8/16/32-bit, each size 1 to 1023 (FR1) | the user | `io_nrrd.load_nrrd` |
+| `Volume.data` | ndarray `[x][y][z]`, uint8/16/32, C-contiguous, read-only | voxel values | shape `(sx, sy, sz)`, each 1 to 1023 | `load_nrrd` | projectors, `IntensityWindow.from_volume` |
+| `Volume.value_offset` | int | voxel values | 0, or the negative minimum of signed data that was subtracted (D17) | `load_nrrd` | reporting only |
+| `Volume.origin` | float64 `(3,)` or None | world | from `space origin` | `load_nrrd` | `world_to_voxel` (`--world`) |
+| `Volume.directions` | float64 `(3, 3)` or None, one row per axis | world per voxel | from `space directions`; must be invertible | `load_nrrd` | `world_to_voxel` |
+| CSV row, counted layout | text: `n, x1, y1, z1, ...` | voxel (world with `--world`) | `n` is 3 or 4, then exactly `3n` finite numbers; a triangle may leave 3 empty cells | the user (the lecturer's sheet) | `plane_csv.read_planes` |
+| CSV row, plain layouts | text: 9 or 12 numbers, or 3 numbers per point row | as above | see FR2.2, FR2.3 | the user | `read_planes` |
+| Comment, header | text | | a line starting with `#`; a first row with a non-numeric cell | the user | skipped by `read_planes` |
+| Plane points | float64 `(3,)` each: `a, b, c` or `a', b, a'', c` | voxel | finite; the checks of FR3.1 | `read_planes` (after `to_voxel`) | `Triangle`, `Trapezoid` |
+| `Plane.corners` | 4 float64 `(3,)`: `A1, B1, A2, B2` | voxel | `(a, b, a, c)` for a triangle | `Plane.__init__` | comparison scripts |
+| `Rails.A1`, `Rails.A2` | float64 `(3,)` | voxel | start of rail 1 and rail 2 | `geometry._build_rails` | projectors |
+| `Rails.v1`, `Rails.v2` | float64 `(3,)` | voxel per row | `(B - A) / L`, `L = |B1 - A1|`; unit length for an isosceles plane (D18) | `_build_rails` | projectors |
+| `Rails.H`, `Rails.W` | int | pixels | `floor(L + SNAP) + 1` and `floor(max width + SNAP) + 1`, each 1 to 4096 (D4, D8, D20) | `_build_rails` | projectors, `FrameComposer` |
+| `PlaneRow` | `line` int, `plane` Plane or None, `error` str or None, `warning` str or None | | `line` is the 1-based CSV line of the plane (or of its bad point); exactly one of `plane`, `error` is set | `read_planes` | `cli.run` |
+| Image `E` | ndarray `(H, W)`, dtype of the volume | voxel values | 0 outside the plane's rows and outside the volume (FR5) | `Projector.project` | `IntensityWindow.apply` |
+| `IntensityWindow.lo`, `.hi` | float | voxel values | `hi > lo`; 1st and 99th percentile (D12) | `IntensityWindow.from_volume` | `apply` |
+| Gray image | ndarray `(H, W)` uint8 | gray level | 0 to 255; a lookup table for 8 and 16-bit data | `IntensityWindow.apply` | `FrameComposer.compose` |
+| Frame | ndarray `(Hc, Wc)` uint8 | gray level | `Hc, Wc` = the largest `H` and `W` rounded up to even (D13), or 64 x 64 when no plane is valid | `FrameComposer.compose`, `.error_frame` | `Mp4Writer.append` |
+| Error frame text | "ERROR", `frame N, line L`, the cause | | at the largest size that fits; the cause is dropped first (FR3.6) | `FrameComposer.error_frame` | the viewer |
+| Video | mp4 file, H.264, yuv420p | frames per second | one frame per plane, `--fps` > 0 (default 15) | `video.Mp4Writer` | the user |
+| Options | `--fps` float, `--interp` nearest/trilinear, `--backend` auto/numba/numpy/reference, `--world`, `--force` | | see FR6 to FR10 | the user | `cli.build_parser` |
+| Messages | `warning: <file>:<line>: ...`, `error: ...` on standard error; the summary on standard output | | one line each (FR9.4, NFR3) | `cli` | the user |
+| Exit code | int | | 0 video written, 1 internal error, 2 invalid whole input (FR9.2) | `cli.main` | the shell |
+| Constants | `REL_TOL = 1e-3` (isosceles, D9), `SNAP = 1e-9` (D8), `MAX_IMAGE_SIDE = 4096` (D20) | | | `geometry.py`, `sampler.py` | validation, projectors |
+
 ### 1.4 References
 - The assignment text (Ex1, Ariel University) and the lecture in which it was presented.
 - The lecturer's [example planes sheet](https://docs.google.com/spreadsheets/d/1Tfy1yMYhAJjRBA8ZpRp_07pZXqGtxWhWoP02yZW1FQE/edit).
