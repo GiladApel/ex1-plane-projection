@@ -43,8 +43,23 @@ class IntensityWindow:
         return cls(float(lo), float(max(hi, lo + 1.0)))
 
     def apply(self, image: np.ndarray) -> np.ndarray:
-        """Pseudo-code: gray = floor(clip((value - lo) / (hi - lo), 0, 1) * 255 + 0.5) as uint8."""
-        scaled = np.clip((image.astype(np.float64) - self.lo) / (self.hi - self.lo), 0.0, 1.0)
+        """Pseudo-code:
+            gray(value) = floor(clip((value - lo) / (hi - lo), 0, 1) * 255 + 0.5) as uint8
+            uint8 and uint16 images: look gray up in a table of every possible value, built once per dtype
+            uint32 images: compute gray per pixel (a table of 2^32 entries is too large)
+        """
+        if image.dtype.itemsize <= 2:
+            return self._table(image.dtype)[image]
+        return self._gray(image)
+
+    def _table(self, dtype: np.dtype) -> np.ndarray:
+        tables = self.__dict__.setdefault("_tables", {})
+        if dtype not in tables:
+            tables[dtype] = self._gray(np.arange(np.iinfo(dtype).max + 1))
+        return tables[dtype]
+
+    def _gray(self, values: np.ndarray) -> np.ndarray:
+        scaled = np.clip((values.astype(np.float64) - self.lo) / (self.hi - self.lo), 0.0, 1.0)
         return np.floor(scaled * 255.0 + 0.5).astype(np.uint8)
 
 

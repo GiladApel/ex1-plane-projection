@@ -28,7 +28,11 @@ All commands are run from the repository root after `python scripts/download_dat
 | 3. MRHead rotation, trilinear | 386 x 386 | 890 | 132 |
 | 4. CTChest rotation | 740 x 740 | 777 | 46 |
 
-The projection is far above the 100 fps target in every run. The end-to-end rate is limited by H.264 encoding, which grows with frame area; it falls to 46 fps only for the 740 x 740 CT frames. Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md](experiment/benchmark.md): Numba reaches about 840 fps with nearest sampling on oblique planes and about 410 fps with trilinear, and still exceeds 100 fps on a single thread (169 fps). The NumPy fallback reaches about 150 fps with nearest sampling and 16 to 35 fps with trilinear.
+The projection is far above the 100 fps target in every run. The end-to-end rate is limited by H.264 encoding, which grows with frame area; it falls to 46 fps only for the 740 x 740 CT frames.
+
+The table above was measured before the intensity window became a lookup table for uint8 and uint16 images (one table entry per possible value, built once; same output as the formula, verified by a test). The table maps a 740 x 740 frame in 1.7 ms instead of 8.8 ms. End to end, MRHead rotation (386 x 386) went from about 135 to about 210 fps over three runs each; CTChest stayed at about 44 fps, because its frames are limited by the H.264 encoder, which runs in a separate ffmpeg process alongside the mapping.
+
+Detailed projection benchmarks on a 500^3 volume are in [experiment/benchmark.md](experiment/benchmark.md): Numba reaches about 840 fps with nearest sampling on oblique planes and about 410 fps with trilinear, and still exceeds 100 fps on a single thread (169 fps). The NumPy fallback reaches about 150 fps with nearest sampling and 16 to 35 fps with trilinear.
 
 **Findings from the benchmark.**
 - Axis-aligned planes are faster than oblique ones (Numba uint8 nearest: 1946 vs 837 fps; NumPy: 230 vs 153). The likely cause (not measured directly) is memory locality: axis-aligned samples walk the volume along regularly strided lines, while oblique samples jump across the 125 MB volume and miss the processor cache.

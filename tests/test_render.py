@@ -19,6 +19,16 @@ def test_window_maps_lo_hi_and_clips():
     assert window.apply(image).tolist() == [[0, 0, 128, 255, 255]]
 
 
+@pytest.mark.parametrize("dtype", [np.uint8, np.uint16, np.uint32])
+def test_window_table_equals_the_formula(dtype):
+    window = IntensityWindow(37.25, 3000.5)
+    values = np.arange(np.iinfo(np.uint16).max + 1, dtype=np.uint32)
+    values = values[values <= np.iinfo(dtype).max].astype(dtype).reshape(1, -1)
+    expected = np.floor(np.clip((values.astype(np.float64) - 37.25) / (3000.5 - 37.25), 0, 1) * 255 + 0.5)
+    assert np.array_equal(window.apply(values), expected.astype(np.uint8))
+    assert np.array_equal(window.apply(values), window.apply(values))
+
+
 def test_window_on_constant_volume_does_not_divide_by_zero():
     window = IntensityWindow.from_volume(Volume(np.full((4, 4, 4), 7, dtype=np.uint8)))
     assert window.hi > window.lo
