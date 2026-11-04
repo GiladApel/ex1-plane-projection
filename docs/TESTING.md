@@ -17,10 +17,10 @@
 | Correctness | Reference projector against independent answers: axis-aligned planes equal NumPy slices for all 6 axis permutations and 3 dtypes; exact pixel counts on a gradient; oblique plane against a closed form; apex row; plane fully and partly outside; no holes in rows; trilinear weights and uint32 overflow safety; `out` buffer handling | `test_reference_projector.py` |
 | Equivalence | NumPy (single and forced multi-chunk) and Numba equal the reference exactly: Hypothesis over random and axis-aligned planes, all dtypes, both samplers; half-integer coordinates that lock the rounding rule; thread-count independence (1, 2, 3, 7); backend selection and fallback when Numba is missing | `test_backend_equivalence.py` |
 | Rendering | Intensity window, canvas centering and even sizing, video writer checks | `test_render.py` |
-| End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, the lecturer's example sheet (counted layout, mixed shapes, one non-isosceles triangle that gives a warning), point-per-row CSV with one or several planes, `--world`, `--force`, error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
+| End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, the lecturer's example sheet (counted layout, mixed shapes, one non-isosceles triangle that gives a warning), point-per-row CSV with one or several planes, `--world`, `--force`, bad rows that become error frames while the run goes on, whole-file errors that stop it, a failing projection (exit code 1), error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
 | Performance | 500^3 uint8, 40 random oblique planes, best of 3 medians. Absolute floors: Numba nearest 500 fps, Numba trilinear 250, NumPy nearest 100 (about half of the measured speed). Portable: Numba on all threads at least 3x its 1-thread speed (1.5x on 4-thread machines), Numba at least 1.4x NumPy (measured 4x on the reference machine, 1.9x on CI runners). End to end: the demo on 180 frames of 446x446 at 100+ fps projection and 30+ fps including encoding. Run with `pytest -m slow` | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-222 tests: 216 in the default run and 6 slow ones (2 of them portable, also run in CI).
+232 tests: 226 in the default run and 6 slow ones (2 of them portable, also run in CI).
 
 ## Demo testing
 
@@ -54,7 +54,7 @@ Statement coverage of the package is 90 percent (`pytest --cov=projection`). Two
 ## Running
 
 ```
-pytest                 # 216 tests, about 15 seconds
+pytest                 # 226 tests, about 15 seconds
 pytest -m slow         # all performance tests, about 20 seconds and about 150 MB of memory (run on mains power)
 pytest -m portable     # only the machine-independent speed tests, as in CI
 pytest --cov=projection --cov-report=term-missing

@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 
 from projection import synthetic
-from projection.cli import EXIT_INVALID, EXIT_OK, main
-from projection.projector import NumbaProjector
+from projection.cli import EXIT_INTERNAL, EXIT_INVALID, EXIT_OK, main
+from projection.projector import NumbaProjector, NumpyProjector
 
 try:
     NumbaProjector()
@@ -127,12 +127,72 @@ def test_missing_nrrd_is_reported(inputs, capsys):
     assert not mp4_path.exists()
 
 
-def test_bad_csv_reports_line_and_writes_nothing(inputs, capsys):
+def is_error_frame(frame):
+    gray = frame[:, :, 0].astype(int)
+    return 40 < np.median(gray) < 90 and gray.max() > 200
+
+
+def test_bad_rows_become_error_frames_and_the_run_goes_on(inputs, capsys):
     nrrd_path, csv_path, mp4_path = inputs
-    csv_path.write_text(CENTER_PLANE + "\n1,2,3\n")
+    collinear = "0,0,0, 5,5,5, 10,10,10"
+    csv_path.write_text("\n".join([CENTER_PLANE, "16,6,x, 6,26,16, 26,26,16", collinear, SHIFTED_PLANE]) + "\n")
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
+    out, err = capsys.readouterr()
+    assert "planes.csv:2: non-numeric value; frame 2 is an error frame" in err
+    assert "planes.csv:3:" in err and "collinear" in err
+    assert "2 of 4 frames are error frames:" in out
+    assert "frame 2, line 2: non-numeric value" in out and "frame 3, line 3:" in out
+    frames = read_frames(mp4_path)
+    assert frames.shape[0] == 4
+    assert [is_error_frame(f) for f in frames] == [False, True, True, False]
+    assert frames[0].mean() > 20 and frames[3].mean() > 20
+
+
+def test_a_file_of_bad_rows_still_gives_one_frame_per_row(inputs, capsys):
+    nrrd_path, csv_path, mp4_path = inputs
+    csv_path.write_text("1,2,3,4,5,6,7,8,9,10\n0,0,0,5,5,5,10,10,10\n")
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "no plane projected" in out and "2 of 2 frames are error frames" in out
+    frames = read_frames(mp4_path)
+    assert frames.shape[:3] == (2, 64, 64) and all(is_error_frame(f) for f in frames)
+
+
+def test_problems_with_the_whole_file_still_stop_the_run(inputs, capsys):
+    nrrd_path, csv_path, mp4_path = inputs
+    csv_path.write_text("0,0,0\n1,1,1\n2,2,2\n3,3,3\n4,4,4\n")
     assert main([str(nrrd_path), str(csv_path), str(mp4_path)]) == EXIT_INVALID
-    assert ":2:" in capsys.readouterr().err
+    assert "got 5 rows" in capsys.readouterr().err
     assert not mp4_path.exists()
+
+
+def test_world_coordinates_without_metadata_stop_the_run(inputs, capsys):
+    nrrd_path, csv_path, mp4_path = inputs
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--world"]) == EXIT_INVALID
+    assert "--world needs 'space origin'" in capsys.readouterr().err
+    assert not mp4_path.exists()
+
+
+def test_a_failing_projection_gives_an_error_frame_and_exit_code_1(inputs, capsys, monkeypatch):
+    import projection.cli as cli
+
+    class Failing(NumpyProjector):
+        calls = 0
+
+        def project(self, volume, plane, out=None):
+            Failing.calls += 1
+            if Failing.calls == 3:          # call 1 is the warm-up, call 3 is the second plane
+                raise RuntimeError("boom")
+            return super().project(volume, plane, out)
+
+    monkeypatch.setattr(cli, "make_projector", lambda backend, interpolation: Failing(interpolation))
+    nrrd_path, csv_path, mp4_path = inputs
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path)]) == EXIT_INTERNAL
+    out, err = capsys.readouterr()
+    assert "internal error while projecting (RuntimeError: boom)" in err
+    assert "1 of 4 frames are error frames" in out
+    frames = read_frames(mp4_path)
+    assert frames.shape[0] == 4 and is_error_frame(frames[1])
 
 
 def test_non_3d_nrrd_is_rejected(tmp_path, inputs, capsys):

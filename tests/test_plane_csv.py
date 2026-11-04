@@ -2,7 +2,7 @@ import pytest
 
 from projection.errors import InvalidInputError
 from projection.geometry import Trapezoid, Triangle
-from projection.plane_csv import parse_planes
+from projection.plane_csv import parse_planes, read_planes
 
 TRI = "5,0,0,0,10,0,10,10,0"
 TRAP = "2,0,0,0,10,0,8,0,0,10,10,0"
@@ -234,3 +234,23 @@ def test_point_per_row_invalid_plane_reports_first_line(tmp_path):
 def test_point_per_row_applies_to_voxel(tmp_path):
     plane = parse_planes(write(tmp_path, "5,0,0\n0,10,0\n10,10,0\n"), to_voxel=lambda p: p + 100.0)[0]
     assert plane.rails().A1.tolist() == [105.0, 100.0, 100.0]
+
+
+def test_read_planes_keeps_going_after_bad_rows(tmp_path):
+    rows = read_planes(write(tmp_path, f"{TRI}\n5,0,x,0,10,0,10,10,0\n0,0,0,5,5,5,10,10,10\n{TRAP}\n{TRI}\n"))
+    assert [r.line for r in rows] == [1, 2, 3, 4, 5]
+    assert isinstance(rows[0].plane, Triangle) and isinstance(rows[4].plane, Triangle)
+    assert rows[3].error == "expected 9 values like the first row, got 12"
+    assert rows[1].plane is None and rows[1].error == "non-numeric value"
+    assert rows[2].plane is None and "collinear" in rows[2].error
+
+
+def test_read_planes_point_rows_report_the_line_of_the_bad_point(tmp_path):
+    rows = read_planes(write(tmp_path, f"{TRI_POINTS}\n0,0,0\n0,10\n10,10,0\n"))
+    assert rows[0].plane is not None
+    assert (rows[1].line, rows[1].error) == (6, "expected 3 values (x, y, z) per point, got 2")
+
+
+def test_parse_planes_still_raises_on_the_first_bad_row(tmp_path):
+    with pytest.raises(InvalidInputError, match=r"planes\.csv:2: non-numeric"):
+        parse_planes(write(tmp_path, f"{TRI}\n5,0,x,0,10,0,10,10,0\n0,0,0,5,5,5,10,10,10\n"))

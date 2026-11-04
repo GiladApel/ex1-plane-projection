@@ -27,6 +27,7 @@ The program reads a 3D volume and a list of planes and writes a video with one f
 - **Voxel coordinates**: positions given as array indices. **World coordinates**: positions in the NRRD file's physical space (`space origin`, `space directions`).
 - **Counted layout**: the CSV format of the lecturer's example sheet: the number of points, then their coordinates.
 - **Warning**: a `warning:` line on standard error; the run continues. **Error**: an `error:` line on standard error; the run stops before any output is written.
+- **Error frame**: the frame written for a plane that could not be built or projected: dark gray with a white border and a white X, so it is never confused with the black frame of a plane outside the volume.
 - **fps**: planes projected per second, counting the projection only (D16).
 - **Backend**: one of three interchangeable implementations of the projection: reference, NumPy, Numba.
 
@@ -46,7 +47,7 @@ Each requirement is one statement with an ID. Groups keep the IDs `FR1` to `FR10
 ## 2. Overall description
 
 ### 2.1 Product perspective
-A single pipeline: read the volume, read and validate every plane, then for each plane project, map to gray, center on the canvas and encode a frame. All input is validated before the video file is opened, so a failed run leaves no partial output. The projection is behind one interface (`Projector`) with three implementations; the default picks Numba when installed and NumPy otherwise.
+A single pipeline: read the volume, read and validate every plane, then for each plane project, map to gray, center on the canvas and encode a frame. A problem with a whole file (volume, planes file, output folder) is found before the video file is opened, so it leaves no partial output. A problem with one plane does not stop the run: that plane becomes an error frame, and the summary lists it (D19). The projection is behind one interface (`Projector`) with three implementations; the default picks Numba when installed and NumPy otherwise.
 
 ### 2.2 Users
 | User | Needs |
@@ -79,13 +80,15 @@ The open points of the assignment are listed in [section 6](#6-assumptions-to-co
 | FR2.3 | The program shall also read one point per row (3 numbers), grouping 3 rows into a triangle and 4 into a trapezoid; blank lines separate planes, and without blank lines a row count that is a multiple of 12 is rejected as ambiguous. | Could |
 | FR2.4 | The program shall detect the layout from the first data row, skip a first row that holds text (a header), ignore a UTF-8 byte order mark, blank lines and empty cells at the end of a row. | Should |
 | FR2.5 | The program shall report every unreadable row with the file name and line number. | Must |
+| FR2.7 | A problem with the planes file as a whole (missing, unreadable, no rows, point rows that cannot be grouped into planes) shall be an error. | Must |
 | FR2.6 | The program shall reject a file with no planes. | Must |
 | **FR3** | **Plane validation** | |
 | FR3.1 | The program shall reject a plane with a non-finite coordinate, an edge shorter than one voxel, collinear points, or (for a trapezoid) points not in one plane or a top side not parallel to the base. | Must |
 | FR3.2 | The program shall project a plane whose legs differ by more than the relative tolerance 1e-3 as given, and print a warning naming its CSV line (D9). | Should |
 | FR3.3 | With `--force`, the program shall not print the warning of FR3.2. | Could |
 | FR3.4 | When a trapezoid fails the isosceles or parallel check, the message shall state the expected point order `a', b, a'', c` (D10). | Could |
-| FR3.5 | The program shall validate every plane before writing any output. | Must |
+| FR3.5 | The program shall check every plane before writing any output, and warn about each bad one with its line, its frame number and the cause. | Must |
+| FR3.6 | A row or plane that cannot be read or fails FR3.1 shall not stop the run: its frame shall be an error frame (D19). | Should |
 | **FR4** | **Projection** | |
 | FR4.1 | The program shall compute the image of each plane by the algorithm of [ALGORITHM.md](ALGORITHM.md), section 2: two rails, one row per unit step along them, samples one unit apart along each row, centered (D3 to D8). | Must |
 | FR4.2 | A trapezoid shall be projected by the same procedure, with rails `a' -> b` and `a'' -> c` (D10). | Must |
@@ -101,18 +104,18 @@ The open points of the assignment are listed in [section 6](#6-assumptions-to-co
 | FR7.1 | The program shall offer the backends `reference`, `numpy` and `numba`, selected with `--backend`. | Could |
 | FR7.2 | The default `auto` shall use Numba when it can be imported and NumPy otherwise, without an error. | Should |
 | **FR8** | **Video output** | |
-| FR8.1 | The program shall write an mp4 file (H.264, yuv420p) with exactly one frame per plane, in the order of the planes file. | Must |
+| FR8.1 | The program shall write an mp4 file (H.264, yuv420p) with exactly one frame per plane, in the order of the planes file, error frames included. | Must |
 | FR8.2 | All frames shall have one size: the largest image height and width over the planes, each rounded up to an even number; each image shall be centered on a black canvas (D13). | Must |
 | FR8.3 | Values shall be mapped to gray by one window for the whole video, from the 1st to the 99th percentile of the volume, leaving out background padding (D12). | Should |
 | FR8.4 | The frame rate shall be set with `--fps` (default 15). | Could |
 | **FR9** | **Command line** | |
 | FR9.1 | The program shall run as `python Ex0.py file.nrrd file.csv file.mp4 [options]` from the repository, without installation. | Must |
-| FR9.2 | The program shall exit with code 0 on success, 2 on invalid input (with a one-line `error:` message) and 1 on an internal error. | Should |
+| FR9.2 | The program shall exit with code 0 when it writes the video (error frames for bad planes included), 2 on a problem with a whole input (with a one-line `error:` message), and 1 on an internal error, including a projection that failed for one plane. | Should |
 | FR9.3 | The program shall reject an output path whose folder does not exist, before reading the inputs. | Should |
-| FR9.4 | After a run the program shall print the number of frames, the frame size, the backend, the projection fps and the end-to-end fps. | Should |
+| FR9.4 | After a run the program shall print the number of frames, the frame size, the backend, the projection fps and the end-to-end fps, and then every error frame with its CSV line and cause. | Should |
 | **FR10** | **World coordinates** | |
 | FR10.1 | With `--world`, the program shall read the CSV points as NRRD world coordinates and convert them to voxel coordinates with `space origin` and `space directions`. | Could |
-| FR10.2 | With `--world`, a volume without spatial metadata shall be an error. | Could |
+| FR10.2 | With `--world`, a volume without spatial metadata shall be an error, before any plane is read. | Could |
 
 ## 4. Non-functional requirements
 
@@ -124,7 +127,7 @@ The open points of the assignment are listed in [section 6](#6-assumptions-to-co
 | NFR1.3 | With Numba, trilinear sampling shall reach 100 planes per second on the reference machine. | Could |
 | NFR1.4 | A loss of speed in the Numba backend (lost parallelism, a slower kernel) shall be detected automatically on every push. | Should |
 | **NFR2** | **Correctness**: with nearest sampling, the NumPy and Numba backends shall produce images identical, pixel for pixel, to the reference backend. | Must |
-| **NFR3** | **Robustness**: no input file shall make the program end with a Python traceback; every invalid input shall produce a one-line error and exit code 2 (FR9.2). | Must |
+| **NFR3** | **Robustness**: no input file shall make the program end with a Python traceback. A bad whole input gives a one-line error and exit code 2; a bad plane gives a warning and an error frame, and the run goes on (FR3.6, FR9.2). | Must |
 | **NFR4** | **Maintainability**: each backend and sampler shall sit behind one interface; core functions shall carry English pseudo-code in their docstrings; the code shall pass `ruff` and `mypy`. | Should |
 | **NFR5** | **Portability**: the program shall run on Python 3.10 to 3.14, with and without Numba installed. | Should |
 | **NFR6** | **Determinism**: the same inputs shall give the same images on every run, backend and thread count. | Should |
@@ -152,6 +155,7 @@ The assignment pseudo-code is under-specified. These are the resolutions. Where 
 | D15 | Anisotropic voxel spacing | Ignored in voxel space. Only `--world` takes spacing into account. |
 | D16 | Meaning of "fps" | Projection only, as in NFR1. |
 | D17 | Real data is often signed (MRHead is int16) but the assignment specifies unsigned values | Signed 8/16/32-bit data is cast to the unsigned type of the same width. If it has negative values (CT), the minimum is subtracted first and kept as `value_offset`. Floats and 64-bit types are rejected. |
+| D19 | What to do with one bad plane among many (a typo in one row, a degenerate triangle) | The run goes on: the plane gets a warning with its line, frame number and cause, its frame is an error frame, and the summary lists all of them. The frame count still equals the number of planes, so frame `n` is always plane `n`. A problem with a whole file still stops the run before any output, since no frame could be trusted. A projection that raises (a bug, not bad input) also gives an error frame, but the exit code becomes 1 so it is not missed. |
 | D18 | Both rails must advance in the same number of steps when the plane is not exactly isosceles (within tolerance, or accepted with a warning) | `v1 = (B1-A1)/L` and `v2 = (B2-A2)/L` with `L = |B1-A1|`. For an exact isosceles plane both are unit vectors. |
 
 ## 6. Assumptions to confirm with the lecturer
@@ -178,7 +182,7 @@ Full matrix (dtype, sampling, plane orientation, thread scaling): [experiment/be
 
 | ID | Actor | Main flow | Alternatives |
 |---|---|---|---|
-| UC-01 Make a video | Lecturer or grader | Runs `python Ex0.py file.nrrd file.csv file.mp4`. The program reads and checks the volume and every plane, projects each plane, writes one frame per plane, prints the summary (FR9.4) and exits with 0. | Bad volume, bad row or missing output folder: one `error:` line, no video, exit 2 (FR1.3, FR2.5, FR9.3). A non-isosceles plane: a `warning:` line naming its row, and the plane is drawn (FR3.2). A plane outside the volume: a black frame (FR5.2). |
+| UC-01 Make a video | Lecturer or grader | Runs `python Ex0.py file.nrrd file.csv file.mp4`. The program reads and checks the volume and every plane, projects each plane, writes one frame per plane, prints the summary (FR9.4) and exits with 0. | Bad volume, bad planes file or missing output folder: one `error:` line, no video, exit 2 (FR1.3, FR2.7, FR9.3). A bad row or plane: a `warning:` line naming its line and frame, an error frame, and the run goes on; the summary lists the error frames (FR3.6, FR9.4). A non-isosceles plane: a `warning:` line naming its row, and the plane is drawn (FR3.2). A plane outside the volume: a black frame (FR5.2). |
 | UC-02 Use the lecturer's planes sheet | Lecturer | Exports his sheet to CSV (header, point count, empty cells for triangles) and runs UC-01 with it. | Rows of other layouts are accepted too (FR2.2, FR2.3). |
 | UC-03 Give planes in world coordinates | User with a scan in millimeters | Adds `--world`; points are converted with the file's origin and directions (FR10.1). | The file has no spatial metadata: error, exit 2 (FR10.2). |
 | UC-04 Run without Numba | User on a machine without Numba | Runs UC-01; `auto` falls back to NumPy without an error (FR7.2). | Asks for `--backend numba`: error naming the missing package, exit 2. |
@@ -199,13 +203,15 @@ Each requirement, where it is implemented, and the tests that verify it. Test fi
 | FR2.2 | `plane_csv._planes_from_plane_rows` | `test_plane_csv::test_triangles`, `::test_trapezoids`, `::test_mixed_point_counts_rejected`, `::test_wrong_column_count_reports_line_number` |
 | FR2.3 | `plane_csv._group_point_rows` | `test_plane_csv::test_point_per_row_*` (14 tests); `test_cli::test_point_per_row_csv_*` |
 | FR2.4 | `plane_csv.parse_planes`, `._is_header`, `._drop_trailing_empty` | `test_plane_csv::test_header_is_skipped`, `::test_utf8_bom`, `::test_blank_lines_and_spaces_are_ignored`, `::test_trailing_commas_are_ignored`, `::test_empty_cell_inside_a_row_is_rejected` |
-| FR2.5 | `plane_csv` (errors prefixed `path:line:`) | `test_plane_csv::test_bad_value_reports_line_number`, `::test_invalid_plane_reports_line_number`, `::test_point_per_row_bad_row_reports_line`; `test_cli::test_bad_csv_reports_line_and_writes_nothing` |
+| FR2.5 | `plane_csv.read_planes`, `PlaneRow` (line and cause per plane) | `test_plane_csv::test_bad_value_reports_line_number`, `::test_invalid_plane_reports_line_number`, `::test_point_per_row_bad_row_reports_line`; `test_cli::test_bad_rows_become_error_frames_and_the_run_goes_on` |
 | FR2.6 | `plane_csv.parse_planes` | `test_plane_csv::test_header_only_file_rejected`, `::test_empty_file_rejected`, `::test_missing_file` |
 | FR3.1 | `geometry.Triangle`, `geometry.Trapezoid`, D11 | `test_geometry::test_triangle_rejects_collinear`, `::test_triangle_rejects_coincident_points`, `::test_rejects_edge_shorter_than_one_voxel`, `::test_rejects_non_finite`, `::test_trapezoid_rejects_non_coplanar`, `::test_trapezoid_rejects_non_parallel_sides`, `::test_trapezoid_rejects_fully_degenerate`; `test_plane_csv::test_warning_does_not_hide_other_plane_errors` |
 | FR3.2 | `errors.NotIsoscelesError`, `plane_csv._build_plane`, `cli._warn`, D9, D18 | `test_plane_csv::test_non_isosceles_plane_is_kept_with_a_warning`; `test_cli::test_non_isosceles_plane_is_projected_with_a_warning`, `::test_lecturer_csv_format`; `test_geometry::test_triangle_rejects_non_isosceles`, `::test_triangle_within_tolerance_is_accepted` |
 | FR3.3 | `cli` (`--force`) | `test_plane_csv::test_force_silences_the_warning`, `::test_force_skips_isosceles_check`; `test_cli::test_non_isosceles_plane_is_projected_with_a_warning` |
 | FR3.4 | `geometry.TRAPEZOID_ORDER`, D10 | `test_geometry::test_trapezoid_in_wrong_point_order_names_the_expected_order`, `::test_triangle_isosceles_error_has_no_order_hint` |
-| FR3.5 | `cli.run` (parse all planes before opening the writer) | `test_cli::test_bad_csv_reports_line_and_writes_nothing` |
+| FR2.7 | `plane_csv.read_planes`, `._group_point_rows` | `test_plane_csv::test_point_per_row_wrong_row_count`, `::test_empty_file_rejected`; `test_cli::test_problems_with_the_whole_file_still_stop_the_run` |
+| FR3.5 | `cli.run` (read all planes before opening the writer) | `test_cli::test_bad_rows_become_error_frames_and_the_run_goes_on` |
+| FR3.6 | `plane_csv.read_planes`, `render.FrameComposer.error_frame`, `cli.run`, D19 | `test_cli::test_bad_rows_become_error_frames_and_the_run_goes_on`, `::test_a_file_of_bad_rows_still_gives_one_frame_per_row`, `::test_a_failing_projection_gives_an_error_frame_and_exit_code_1`; `test_plane_csv::test_read_planes_*` (2 tests); `test_render::test_error_frame_is_gray_with_a_white_border_and_x`, `::test_canvas_for_no_planes` |
 | FR4.1 | `projector.ReferenceProjector`, ALGORITHM section 2, D3 to D8 | `test_reference_projector::test_axis_aligned_plane_equals_numpy_slice`, `::test_triangle_on_gradient_has_constant_value_and_exact_pixel_count`, `::test_triangle_apex_row_is_one_centered_pixel`, `::test_oblique_plane_on_gradient_matches_closed_form`, `::test_non_integer_edges_have_no_holes_in_rows` |
 | FR4.2 | `geometry._build_rails`, D10 | `test_geometry::test_trapezoid_rails_and_size`, `::test_trapezoid_with_equal_top_is_triangle`; `test_cli::test_trapezoid_rows` |
 | FR4.3 | `geometry._build_rails`, D4 | `test_geometry::test_isosceles_triangle_size`, `::test_trapezoid_rails_and_size` |
@@ -221,17 +227,17 @@ Each requirement, where it is implemented, and the tests that verify it. Test fi
 | FR8.3 | `render.IntensityWindow`, D12 | `test_render::test_window_*` (8 tests) |
 | FR8.4 | `cli` (`--fps`) | `test_cli::test_bad_arguments_exit_with_code_2` |
 | FR9.1 | `Ex0.py`, `cli.main` | `test_cli::test_script_runs_as_documented` (subprocess, other working directory) |
-| FR9.2 | `cli.main`, `errors.InvalidInputError` | `test_cli::test_bad_arguments_exit_with_code_2`, `::test_missing_nrrd_is_reported`, `::test_bad_csv_reports_line_and_writes_nothing` |
+| FR9.2 | `cli.main`, `errors.InvalidInputError` | `test_cli::test_bad_arguments_exit_with_code_2`, `::test_missing_nrrd_is_reported`, `::test_problems_with_the_whole_file_still_stop_the_run`, `::test_a_failing_projection_gives_an_error_frame_and_exit_code_1` |
 | FR9.3 | `cli.run` | `test_cli::test_missing_output_directory` |
 | FR9.4 | `cli.run` | `test_cli::test_demo_writes_one_frame_per_row_with_constant_size`; `test_performance::test_demo_end_to_end_speed` |
 | FR10.1 | `volume.Volume.world_to_voxel`, D1, D15 | `test_volume_io::test_world_to_voxel_roundtrip`; `test_cli::test_world_coordinates_are_converted`; `test_plane_csv::test_to_voxel_is_applied` |
-| FR10.2 | `volume.Volume.world_to_voxel` | `test_volume_io::test_world_to_voxel_requires_metadata` |
+| FR10.2 | `cli.run`, `volume.Volume.world_to_voxel` | `test_volume_io::test_world_to_voxel_requires_metadata`; `test_cli::test_world_coordinates_without_metadata_stop_the_run` |
 | NFR1.1 | `kernels_numba`, `projector.NumbaProjector` | `test_performance::test_projection_speed_on_500_cubed` (Numba, nearest); `scripts/bench.py`, `scripts/bench_matrix.py` |
 | NFR1.2 | `projector.NumpyProjector` | `test_performance::test_projection_speed_on_500_cubed` (NumPy, nearest) |
 | NFR1.3 | `kernels_numba.project_trilinear` | `test_performance::test_projection_speed_on_500_cubed` (Numba, trilinear) |
 | NFR1.4 | CI job "speed ratios" | `test_performance::test_numba_scales_with_threads`, `::test_numba_is_much_faster_than_numpy` (marked `portable`, run in CI) |
 | NFR2 | same arithmetic in all backends (ALGORITHM section 4) | `test_backend_equivalence::test_random_planes_match_reference` (Hypothesis), `::test_triangle_matches_reference`, `::test_half_integer_coordinates_lock_the_rounding_rule` |
-| NFR3 | `cli.main` (catches `InvalidInputError`) | the error tests of `test_cli` (exit code and one `error:` line) |
+| NFR3 | `cli.main` (catches `InvalidInputError`), `cli.run` (error frames) | the error tests of `test_cli` (exit code and one `error:` line, or warnings and error frames) |
 | NFR4 | `Projector` interface, `Interpolation` | `ruff check .` and `mypy` in CI; review of [DESIGN.md](DESIGN.md) |
 | NFR5 | `pyproject.toml` (Numba optional) | CI matrix: Python 3.10 to 3.14, each with and without Numba |
 | NFR6 | closed-form positions (D7), fixed summation order | `test_backend_equivalence::test_numpy_result_does_not_depend_on_thread_count`; seeded synthetic data |

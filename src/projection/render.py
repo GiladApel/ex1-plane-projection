@@ -10,6 +10,8 @@ from .volume import Volume
 
 _MAX_WINDOW_SAMPLES = 2_000_000
 _BACKGROUND_SHARE = 0.05
+EMPTY_CANVAS = (64, 64)
+ERROR_BACKGROUND = 64
 
 
 @dataclass(frozen=True)
@@ -73,10 +75,30 @@ class FrameComposer:
 
     @classmethod
     def for_planes(cls, planes: Sequence[Plane]) -> FrameComposer:
-        """Canvas = the largest H and W over all planes, each rounded up to an even number (H.264)."""
+        """Canvas = the largest H and W over all planes, each rounded up to an even number (H.264);
+        EMPTY_CANVAS when there is no plane (every row of the file was bad)."""
+        if not planes:
+            return cls(*EMPTY_CANVAS)
         height = max(p.shape[0] for p in planes)
         width = max(p.shape[1] for p in planes)
         return cls(height + height % 2, width + width % 2)
+
+    def error_frame(self) -> np.ndarray:
+        """The frame of a plane that could not be projected: dark gray with a white border and a white X,
+        so it cannot be mistaken for the black frame of a plane outside the volume. Reused like compose()."""
+        h, w = self.height, self.width
+        self._canvas.fill(ERROR_BACKGROUND)
+        border = max(1, min(h, w) // 64)
+        canvas = self._canvas
+        for edge in (canvas[:border], canvas[h - border:], canvas[:, :border], canvas[:, w - border:]):
+            edge.fill(255)
+        rows = np.arange(h)
+        cols = np.floor(rows * (w - 1) / max(h - 1, 1) + 0.5).astype(np.intp)
+        for shift in range(-border // 2, border - border // 2):
+            shifted = np.clip(cols + shift, 0, w - 1)
+            self._canvas[rows, shifted] = 255
+            self._canvas[rows, w - 1 - shifted] = 255
+        return self._canvas
 
     def compose(self, image: np.ndarray) -> np.ndarray:
         """Return the canvas with image pasted at its center. The returned array is reused by the next call."""

@@ -6,7 +6,7 @@ This document explains how the code is organised and why. The requirements are i
 
 1. **Correctness is provable.** The assignment's pseudo-code is under-specified, so the first thing built is a slow, literal implementation (`ReferenceProjector`) that every faster backend must reproduce exactly.
 2. **Speed without losing correctness.** Two faster backends (NumPy, Numba) sit behind the same interface and are tested for bit-identical output against the reference.
-3. **Input problems are reported, not crashed on.** All validation happens before any output is written and raises one exception type, `InvalidInputError`, which the CLI turns into a one-line message and exit code 2.
+3. **Input problems are reported, not crashed on.** A problem with a whole input raises one exception type, `InvalidInputError`, before any output is written; the CLI turns it into a one-line message and exit code 2. A problem with one plane becomes a warning and an error frame, and the run goes on.
 4. **Each part is replaceable.** Loading, plane geometry, projection, rendering and video writing do not know about each other.
 
 ## Modules and dependencies
@@ -98,7 +98,7 @@ classDiagram
 
 **Immutable value objects.** `Volume` is frozen with a read-only array, and `Rails` is frozen. Backends cannot corrupt the input, and the volume can be shared safely.
 
-**Fail fast.** The CLI loads the volume, parses and validates every plane, builds the canvas and intensity window, and only then opens the video file. A bad row 500 of the CSV is reported before any frame is rendered.
+**Fail fast on files, keep going on planes.** The CLI loads the volume, reads and validates every plane, builds the canvas and intensity window, and only then opens the video file, so a bad volume or an unreadable planes file stops the run before any output. One bad plane does not: `read_planes` returns a `PlaneRow` per plane, holding either the plane or its line and cause, and the CLI writes an error frame for it, so frame `n` is still plane `n` and the other planes are not lost to a typo (SRS D19). `parse_planes` is the strict form for library use: it raises on the first bad plane.
 
 **Data conversion at the edge.** `io_nrrd.py` converts signed integer data to the unsigned types the algorithm specifies (SRS D17), so everything downstream sees uint8/16/32 only.
 

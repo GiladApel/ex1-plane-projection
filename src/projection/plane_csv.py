@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -13,13 +14,36 @@ POINT_COUNTS = {9: 3, 12: 4}
 Warn = Callable[[str], None]
 
 
+@dataclass(frozen=True)
+class PlaneRow:
+    """One plane of a CSV file: the plane, or the reason it could not be built and the line of the problem."""
+
+    line: int
+    plane: Plane | None
+    error: str | None = None
+
+
 def parse_planes(
     path: str | Path,
     to_voxel: Callable[[np.ndarray], np.ndarray] | None = None,
     force: bool = False,
     warn: Warn | None = None,
 ) -> list[Plane]:
-    """Read the planes of a CSV file. Three layouts are accepted:
+    """The planes of a CSV file (see read_planes); the first bad plane raises InvalidInputError "<path>:<line>: ..."."""
+    rows = read_planes(path, to_voxel, force, warn)
+    for row in rows:
+        if row.error is not None:
+            raise InvalidInputError(f"{path}:{row.line}: {row.error}")
+    return [row.plane for row in rows if row.plane is not None]
+
+
+def read_planes(
+    path: str | Path,
+    to_voxel: Callable[[np.ndarray], np.ndarray] | None = None,
+    force: bool = False,
+    warn: Warn | None = None,
+) -> list[PlaneRow]:
+    """Read the planes of a CSV file, one PlaneRow per plane in file order. Three layouts are accepted:
 
     counted:        the lecturer's example. Every row is the number of points (3 or 4) followed by their
                     9 or 12 coordinates; a triangle leaves the fourth point's cells empty. Triangles and
@@ -43,9 +67,10 @@ def parse_planes(
         4. a plane that is valid except that it is not isosceles:
                force set      -> keep it
                warn given     -> report "<path>:<line>: ..." through warn and keep it
-               otherwise      -> error
-        5. any other failure raises InvalidInputError prefixed with "<path>:<line>:"
-        6. require at least one plane
+               otherwise      -> a bad plane
+        5. a row or plane that cannot be built becomes PlaneRow(line, None, reason) and reading goes on
+        6. a missing file, a file without rows, or point rows that cannot be grouped into planes
+           raise InvalidInputError: no plane can be told apart from the next
     """
     path = Path(path)
     if not path.is_file():
@@ -65,8 +90,8 @@ def parse_planes(
     return _planes_from_plane_rows(path, rows, to_voxel, force, warn)
 
 
-def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> list[Plane]:
-    planes: list[Plane] = []
+def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> list[PlaneRow]:
+    planes: list[PlaneRow] = []
     counted = _is_counted(rows[0][1])
     expected: int | None = None
     for line, row in rows:
@@ -80,9 +105,9 @@ def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool, warn:
             points = values.reshape(-1, 3)
             if to_voxel is not None:
                 points = to_voxel(points)
-            planes.append(_build_plane(points, force, warn, f"{path}:{line}"))
+            planes.append(PlaneRow(line, _build_plane(points, force, warn, f"{path}:{line}")))
         except InvalidInputError as exc:
-            raise InvalidInputError(f"{path}:{line}: {exc}") from exc
+            planes.append(PlaneRow(line, None, str(exc)))
     return planes
 
 
@@ -131,24 +156,24 @@ def _group_point_rows(path: Path, rows: list) -> list[list]:
     return [rows[i:i + size] for i in range(0, n, size)]
 
 
-def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> Plane:
+def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> PlaneRow:
     first_line = rows[0][0]
     points = []
     for line, row in rows:
         try:
             values = np.array([float(c) for c in row], dtype=np.float64)
-        except ValueError as exc:
-            raise InvalidInputError(f"{path}:{line}: non-numeric value") from exc
+        except ValueError:
+            return PlaneRow(line, None, "non-numeric value")
         if len(values) != 3:
-            raise InvalidInputError(f"{path}:{line}: expected 3 values (x, y, z) per point, got {len(values)}")
+            return PlaneRow(line, None, f"expected 3 values (x, y, z) per point, got {len(values)}")
         points.append(values)
     corners = np.array(points)
     try:
         if to_voxel is not None:
             corners = to_voxel(corners)
-        return _build_plane(corners, force, warn, f"{path}:{first_line}")
+        return PlaneRow(first_line, _build_plane(corners, force, warn, f"{path}:{first_line}"))
     except InvalidInputError as exc:
-        raise InvalidInputError(f"{path}:{first_line}: {exc}") from exc
+        return PlaneRow(first_line, None, str(exc))
 
 
 def _build_plane(points: np.ndarray, force: bool, warn: Warn | None, where: str) -> Plane:

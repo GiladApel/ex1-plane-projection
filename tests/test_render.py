@@ -3,7 +3,7 @@ import pytest
 
 from projection import synthetic
 from projection.geometry import Trapezoid, Triangle
-from projection.render import FrameComposer, IntensityWindow
+from projection.render import EMPTY_CANVAS, ERROR_BACKGROUND, FrameComposer, IntensityWindow
 from projection.video import Mp4Writer
 from projection.volume import Volume
 
@@ -89,3 +89,19 @@ def test_writer_rejects_odd_size_and_bad_frames(tmp_path):
             writer.append(np.zeros((4, 4), dtype=np.uint8))
         writer.append(np.zeros((4, 6), dtype=np.uint8))
     assert writer.frames == 1
+
+
+def test_error_frame_is_gray_with_a_white_border_and_x():
+    composer = FrameComposer(40, 60)
+    frame = composer.error_frame()
+    assert frame.shape == (40, 60) and frame.dtype == np.uint8
+    assert np.median(frame) == ERROR_BACKGROUND
+    assert np.all(frame[0] == 255) and np.all(frame[:, -1] == 255)
+    assert frame[20, 30] == 255 or frame[19, 30] == 255     # the X crosses the center
+    assert frame[10, 15] == 255 and frame[10, 44] == 255    # both diagonals
+    assert composer.compose(np.zeros((2, 2), np.uint8)).max() == 0   # the canvas is cleared again
+
+
+def test_canvas_for_no_planes():
+    composer = FrameComposer.for_planes([])
+    assert (composer.height, composer.width) == EMPTY_CANVAS

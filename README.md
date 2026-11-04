@@ -65,7 +65,7 @@ Number of Points (3 or 4),x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4
 28,250,70
 228,250,70
 ```
-Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. Bad input produces a one-line `error:` message and exit code 2. A plane that is not isosceles is projected as given, with a `warning:` line naming its CSV line (`--force` silences it).
+Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. A problem with a whole input (volume, planes file, output folder) produces a one-line `error:` message and exit code 2. A bad row or plane does not stop the run: it gets a `warning:` line and an error frame (gray, with an X), and the summary lists the error frames. A plane that is not isosceles is projected as given, with a `warning:` line naming its CSV line (`--force` silences it).
 
 ## Results
 
@@ -89,7 +89,7 @@ End-to-end speed including mp4 encoding: 46 to 393 fps depending on frame size.
 
 - A plane is reduced to two *rails*; triangles and trapezoids share one code path.
 - `Projector` is the extension point. `ReferenceProjector` is the literal algorithm and the oracle; `NumpyProjector` and `NumbaProjector` are tested for bit-identical output against it with Hypothesis.
-- All input is validated before any output is written.
+- Whole-file problems are found before any output is written; a bad plane becomes an error frame and the run goes on.
 - Class diagram and decisions: [docs/DESIGN.md](docs/DESIGN.md).
 - Figures of the algorithm (the plane in the volume, the output image, and our changes to the assignment's pseudo-code): [docs/ALGORITHM.md](docs/ALGORITHM.md).
 
@@ -125,7 +125,7 @@ The assignment leaves these points open; the choices below are documented in [do
 ## Tests
 
 ```
-pytest                 # 216 fast tests
+pytest                 # 226 fast tests
 pytest -m slow         # performance tests (500^3 volume); pytest -m portable runs the subset used in CI
 ```
 CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed, `ruff check .`, `mypy`, and the machine-independent speed tests (Numba thread scaling, Numba versus NumPy).
