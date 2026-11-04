@@ -65,12 +65,12 @@ def run(args: argparse.Namespace) -> int:
         raise InvalidInputError(f"{args.nrrd}: --world needs 'space origin' and 'space directions' in the file")
     to_voxel = volume.world_to_voxel if args.world else None
     rows = read_planes(args.csv, to_voxel=to_voxel, force=args.force, warn=_accept)
-    errors: dict[int, str] = {}
+    errors: dict[int, tuple[int, str]] = {}
     for frame, row in enumerate(rows, start=1):
         if row.warning is not None:
             _warn(f"{args.csv}:{row.line}: {row.warning}")
         if row.error is not None:
-            errors[frame] = f"line {row.line}: {row.error}"
+            errors[frame] = (row.line, row.error)
             _warn(f"{args.csv}:{row.line}: {row.error}; frame {frame} is an error frame")
     planes = [row.plane for row in rows if row.plane is not None]
 
@@ -100,16 +100,16 @@ def run(args: argparse.Namespace) -> int:
     with projector, Mp4Writer(args.mp4, args.fps, composer.height, composer.width) as writer:
         for frame, row in enumerate(rows, start=1):
             if row.plane is None:
-                writer.append(composer.error_frame())
+                writer.append(composer.error_frame(frame, *errors[frame]))
                 continue
             t0 = time.perf_counter()
             try:
                 image = project(row.plane)
             except Exception as exc:
                 failed = True
-                errors[frame] = f"line {row.line}: internal error while projecting ({type(exc).__name__}: {exc})"
-                _warn(f"{args.csv}:{row.line}: {errors[frame]}; frame {frame} is an error frame")
-                writer.append(composer.error_frame())
+                errors[frame] = (row.line, f"internal error while projecting ({type(exc).__name__}: {exc})")
+                _warn(f"{args.csv}:{row.line}: {errors[frame][1]}; frame {frame} is an error frame")
+                writer.append(composer.error_frame(frame, *errors[frame]))
                 continue
             projection_time += time.perf_counter() - t0
             projected += 1
@@ -124,7 +124,8 @@ def run(args: argparse.Namespace) -> int:
     if errors:
         print(f"{len(errors)} of {writer.frames} frames are error frames:")
         for frame in sorted(errors):
-            print(f"  frame {frame}, {errors[frame]}")
+            line, cause = errors[frame]
+            print(f"  frame {frame}, line {line}: {cause}")
     return EXIT_INTERNAL if failed else EXIT_OK
 
 

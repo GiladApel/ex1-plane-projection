@@ -65,7 +65,7 @@ Number of Points (3 or 4),x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4
 28,250,70
 228,250,70
 ```
-Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. A problem with a whole input (volume, planes file, output folder) produces a one-line `error:` message and exit code 2. A bad row or plane does not stop the run: it gets a `warning:` line and an error frame (gray, with an X), and the summary lists the error frames. Lines starting with `#` are comments. A plane that is not isosceles is projected as given, with a `warning:` line naming its CSV line (`--force` silences it).
+Coordinates are voxel indices; `--world` reads them as NRRD world coordinates. A problem with a whole input (volume, planes file, output folder) produces a one-line `error:` message and exit code 2. A bad row or plane does not stop the run: it gets a `warning:` line and an error frame (gray, showing ERROR, the frame number, the CSV line and the cause), and the summary lists the error frames. Lines starting with `#` are comments. A plane that is not isosceles is projected as given, with a `warning:` line naming its CSV line (`--force` silences it).
 
 ## Results
 
@@ -127,7 +127,7 @@ The assignment leaves these points open; the choices below are documented in [do
 ## Tests
 
 ```
-pytest                 # 241 fast tests
+pytest                 # 243 fast tests
 pytest -m slow         # performance tests (500^3 volume); pytest -m portable runs the subset used in CI
 ```
 CI runs the fast tests on Python 3.10 to 3.14, each with and without Numba installed, `ruff check .`, `mypy`, and the machine-independent speed tests (Numba thread scaling, Numba versus NumPy).

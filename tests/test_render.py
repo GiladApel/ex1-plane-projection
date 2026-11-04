@@ -3,7 +3,7 @@ import pytest
 
 from projection import synthetic
 from projection.geometry import Trapezoid, Triangle
-from projection.render import EMPTY_CANVAS, ERROR_BACKGROUND, FrameComposer, IntensityWindow
+from projection.render import EMPTY_CANVAS, ERROR_BACKGROUND, ERROR_CROSS, ERROR_TEXT, FrameComposer, IntensityWindow
 from projection.video import Mp4Writer
 from projection.volume import Volume
 
@@ -91,15 +91,42 @@ def test_writer_rejects_odd_size_and_bad_frames(tmp_path):
     assert writer.frames == 1
 
 
-def test_error_frame_is_gray_with_a_white_border_and_x():
+def text_pixels(frame):
+    """Pixels of the text: as bright as the border, but inside it."""
+    border = max(1, min(frame.shape) // 64)
+    return int((frame[border:-border, border:-border] == ERROR_TEXT).sum())
+
+
+def test_error_frame_on_a_tiny_canvas_keeps_border_and_x():
     composer = FrameComposer(40, 60)
-    frame = composer.error_frame()
+    frame = composer.error_frame(3, 7, "a cause far too long to fit in a frame this small")
     assert frame.shape == (40, 60) and frame.dtype == np.uint8
     assert np.median(frame) == ERROR_BACKGROUND
-    assert np.all(frame[0] == 255) and np.all(frame[:, -1] == 255)
-    assert frame[20, 30] == 255 or frame[19, 30] == 255     # the X crosses the center
-    assert frame[10, 15] == 255 and frame[10, 44] == 255    # both diagonals
-    assert composer.compose(np.zeros((2, 2), np.uint8)).max() == 0   # the canvas is cleared again
+    assert np.all(frame[0] == ERROR_TEXT) and np.all(frame[:, -1] == ERROR_TEXT)
+    assert frame[4, 6] == ERROR_CROSS and frame[4, 53] == ERROR_CROSS      # both diagonals of the X
+    assert composer.compose(np.zeros((2, 2), np.uint8)).max() == 0          # the canvas is cleared again
+
+
+def test_error_frame_shows_text_that_depends_on_frame_line_and_cause():
+    composer = FrameComposer(240, 320)
+    first = composer.error_frame(2, 5, "non-numeric value").copy()
+    assert text_pixels(first) > 500
+    assert not np.array_equal(first, composer.error_frame(3, 5, "non-numeric value"))
+    assert not np.array_equal(first, composer.error_frame(2, 6, "non-numeric value"))
+    assert not np.array_equal(first, composer.error_frame(2, 5, "triangle points are collinear"))
+
+
+def test_long_cause_is_wrapped_inside_the_border():
+    composer = FrameComposer(200, 200)
+    frame = composer.error_frame(12, 47, "trapezoid legs a'b and a''c cross each other " * 3)
+    border = max(1, 200 // 64)
+    margin = 3 * border + 2
+    inner = np.zeros_like(frame, dtype=bool)
+    inner[margin:-margin, margin:-margin] = True
+    text = frame == ERROR_TEXT
+    text[:border] = text[-border:] = False
+    text[:, :border] = text[:, -border:] = False
+    assert text.sum() > 0 and not (text & ~inner).any()
 
 
 def test_canvas_for_no_planes():

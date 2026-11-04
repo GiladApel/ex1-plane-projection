@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from .geometry import Plane
 from .volume import Volume
@@ -12,6 +14,9 @@ _MAX_WINDOW_SAMPLES = 2_000_000
 _BACKGROUND_SHARE = 0.05
 EMPTY_CANVAS = (64, 64)
 ERROR_BACKGROUND = 64
+ERROR_CROSS = 96
+ERROR_TEXT = 255
+_SMALLEST_FONT = 7
 
 
 @dataclass(frozen=True)
@@ -83,22 +88,39 @@ class FrameComposer:
         width = max(p.shape[1] for p in planes)
         return cls(height + height % 2, width + width % 2)
 
-    def error_frame(self) -> np.ndarray:
-        """The frame of a plane that could not be projected: dark gray with a white border and a white X,
-        so it cannot be mistaken for the black frame of a plane outside the volume. Reused like compose()."""
+    def error_frame(self, frame: int, line: int, cause: str) -> np.ndarray:
+        """The frame of a plane that could not be projected; reused like compose(). It cannot be mistaken for
+        the black frame of a plane outside the volume.
+
+        Pseudo-code:
+            1. fill dark gray, draw a white border and a faint X
+            2. text blocks: "ERROR" (large), "frame N, line L", the cause wrapped to the width inside the border
+            3. for a font size from large to small: if all blocks fit inside the border, draw them centered, stop
+            4. if none fits even at the smallest size: drop the cause, then the frame and line; at worst only
+               the border and the X remain
+        """
         h, w = self.height, self.width
-        self._canvas.fill(ERROR_BACKGROUND)
-        border = max(1, min(h, w) // 64)
         canvas = self._canvas
-        for edge in (canvas[:border], canvas[h - border:], canvas[:, :border], canvas[:, w - border:]):
-            edge.fill(255)
+        canvas.fill(ERROR_BACKGROUND)
+        border = max(1, min(h, w) // 64)
         rows = np.arange(h)
         cols = np.floor(rows * (w - 1) / max(h - 1, 1) + 0.5).astype(np.intp)
         for shift in range(-border // 2, border - border // 2):
             shifted = np.clip(cols + shift, 0, w - 1)
-            self._canvas[rows, shifted] = 255
-            self._canvas[rows, w - 1 - shifted] = 255
-        return self._canvas
+            canvas[rows, shifted] = ERROR_CROSS
+            canvas[rows, w - 1 - shifted] = ERROR_CROSS
+        for edge in (canvas[:border], canvas[h - border:], canvas[:, :border], canvas[:, w - border:]):
+            edge.fill(ERROR_TEXT)
+
+        margin = 3 * border + 2
+        box_w, box_h = w - 2 * margin, h - 2 * margin
+        for blocks in (("ERROR", f"frame {frame}, line {line}", cause), ("ERROR", f"frame {frame}, line {line}"),
+                       ("ERROR",)):
+            layout = _fit_text(blocks, box_w, box_h)
+            if layout is not None:
+                _draw_lines(canvas, layout, h)
+                break
+        return canvas
 
     def compose(self, image: np.ndarray) -> np.ndarray:
         """Return the canvas with image pasted at its center. The returned array is reused by the next call."""
@@ -109,3 +131,55 @@ class FrameComposer:
         self._canvas.fill(0)
         self._canvas[top:top + h, left:left + w] = image
         return self._canvas
+
+
+@lru_cache(maxsize=64)
+def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Pillow's bundled font at this size: no font file to ship, the same glyphs on every machine."""
+    return ImageFont.load_default(size=size)
+
+
+def _text_size(text: str, size: int) -> tuple[int, int]:
+    left, top, right, bottom = _font(size).getbbox(text)
+    return int(right - left), int(bottom - top)
+
+
+def _wrap(text: str, size: int, width: int) -> list[str] | None:
+    """Split text at spaces into lines no wider than width; None if one word alone is wider."""
+    lines: list[str] = []
+    for word in text.split():
+        candidate = f"{lines[-1]} {word}" if lines else word
+        if lines and _text_size(candidate, size)[0] <= width:
+            lines[-1] = candidate
+        elif _text_size(word, size)[0] <= width:
+            lines.append(word)
+        else:
+            return None
+    return lines
+
+
+def _fit_text(blocks: Sequence[str], width: int, height: int) -> list[tuple[str, int]] | None:
+    """(line, font size) for every line of the blocks at the largest size that fits width x height:
+    the first block at twice the size of the others, the others wrapped at spaces."""
+    for size in range(max(_SMALLEST_FONT, height // 6), _SMALLEST_FONT - 1, -1):
+        wrapped = [_wrap(block, size, width) for block in blocks[1:]]
+        if any(block is None for block in wrapped):
+            continue
+        lines = [(blocks[0], 2 * size)] + [(text, size) for block in wrapped if block for text in block]
+        if all(_text_size(text, s)[0] <= width for text, s in lines) and _block_height(lines) <= height:
+            return lines
+    return None
+
+
+def _block_height(lines: Sequence[tuple[str, int]]) -> int:
+    return sum(round(1.3 * size) for _, size in lines)
+
+
+def _draw_lines(canvas: np.ndarray, lines: Sequence[tuple[str, int]], height: int) -> None:
+    image = Image.fromarray(canvas)
+    draw = ImageDraw.Draw(image)
+    top = (height - _block_height(lines)) // 2
+    for text, size in lines:
+        draw.text((canvas.shape[1] // 2, top), text, fill=ERROR_TEXT, font=_font(size), anchor="mt")
+        top += round(1.3 * size)
+    canvas[:] = np.asarray(image)

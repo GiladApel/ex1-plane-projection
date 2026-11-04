@@ -110,7 +110,7 @@ window = (p1, p99) percentiles of the volume, computed once          (D12)
 Hc, Wc = max H and W over all planes, rounded up to even             (D13)
 for each plane (CSV order):
     if the plane could not be built (bad row, degenerate plane):      (D19)
-        write the error frame (dark gray, white border, white X); continue
+        write the error frame (dark gray, white border, faint X; "ERROR", frame, line and cause as text); continue
     E     = project(M, plane)
     img   = clip((E - lo) / (hi - lo), 0, 1) * 255  as uint8       (a lookup table for 8 and 16-bit data)
     frame = zeros(Hc, Wc); paste img centered

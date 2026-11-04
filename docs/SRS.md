@@ -27,7 +27,7 @@ The program reads a 3D volume and a list of planes and writes a video with one f
 - **Voxel coordinates**: positions given as array indices. **World coordinates**: positions in the NRRD file's physical space (`space origin`, `space directions`).
 - **Counted layout**: the CSV format of the lecturer's example sheet: the number of points, then their coordinates.
 - **Warning**: a `warning:` line on standard error; the run continues. **Error**: an `error:` line on standard error; the run stops before any output is written.
-- **Error frame**: the frame written for a plane that could not be built or projected: dark gray with a white border and a white X, so it is never confused with the black frame of a plane outside the volume.
+- **Error frame**: the frame written for a plane that could not be built or projected: dark gray with a white border and a faint X, and the text "ERROR", the frame number, the CSV line and the cause, so it is never confused with the black frame of a plane outside the volume and can be read without the terminal output.
 - **fps**: planes projected per second, counting the projection only (D16).
 - **Backend**: one of three interchangeable implementations of the projection: reference, NumPy, Numba.
 
@@ -56,7 +56,7 @@ A single pipeline: read the volume, read and validate every plane, then for each
 | Developers | Change or extend the program without breaking it: documented algorithm and design, a test suite that names the failing part |
 
 ### 2.3 Operating environment
-Python 3.10 to 3.14 on Windows, Linux or macOS (developed on Windows 11; CI on Ubuntu). Required packages: NumPy, pynrrd, imageio with imageio-ffmpeg (which brings its own FFmpeg). Numba is optional and gives the full speed.
+Python 3.10 to 3.14 on Windows, Linux or macOS (developed on Windows 11; CI on Ubuntu). Required packages: NumPy, pynrrd, imageio with imageio-ffmpeg (which brings its own FFmpeg), and Pillow (for the text of error frames; imageio needs it anyway). Numba is optional and gives the full speed.
 
 ### 2.4 Constraints
 - The demo command is fixed by the assignment: `python Ex0.py file.nrrd file.csv file.mp4`.
@@ -90,7 +90,7 @@ The open points of the assignment are listed in [section 6](#6-assumptions-to-co
 | FR3.3 | With `--force`, the program shall not print the warning of FR3.2. | Could |
 | FR3.4 | When a trapezoid fails the isosceles or parallel check, the message shall state the expected point order `a', b, a'', c` (D10). | Could |
 | FR3.5 | The program shall check every plane before writing any output, and warn about each bad one with its line, its frame number and the cause. | Must |
-| FR3.6 | A row or plane that cannot be read or fails FR3.1 shall not stop the run: its frame shall be an error frame (D19). | Should |
+| FR3.6 | A row or plane that cannot be read or fails FR3.1 shall not stop the run: its frame shall be an error frame (D19) showing "ERROR", the frame number, the CSV line and the cause, at the largest text size that fits the frame; what does not fit is left out, cause first. | Should |
 | **FR4** | **Projection** | |
 | FR4.1 | The program shall compute the image of each plane by the algorithm of [ALGORITHM.md](ALGORITHM.md), section 2: two rails, one row per unit step along them, samples one unit apart along each row, centered (D3 to D8). | Must |
 | FR4.2 | A trapezoid shall be projected by the same procedure, with rails `a' -> b` and `a'' -> c` (D10). | Must |
@@ -217,7 +217,7 @@ Each requirement, where it is implemented, and the tests that verify it. Test fi
 | FR3.4 | `geometry.TRAPEZOID_ORDER`, D10 | `test_geometry::test_trapezoid_in_wrong_point_order_names_the_expected_order`, `::test_triangle_isosceles_error_has_no_order_hint` |
 | FR2.7 | `plane_csv.read_planes`, `._group_point_rows` | `test_plane_csv::test_point_per_row_wrong_row_count`, `::test_empty_file_rejected`; `test_cli::test_problems_with_the_whole_file_still_stop_the_run` |
 | FR3.5 | `cli.run` (read all planes before opening the writer) | `test_cli::test_bad_rows_become_error_frames_and_the_run_goes_on` |
-| FR3.6 | `plane_csv.read_planes`, `render.FrameComposer.error_frame`, `cli.run`, D19 | `test_cli::test_bad_rows_become_error_frames_and_the_run_goes_on`, `::test_a_file_of_bad_rows_still_gives_one_frame_per_row`, `::test_a_failing_projection_gives_an_error_frame_and_exit_code_1`; `test_plane_csv::test_read_planes_*` (2 tests); `test_render::test_error_frame_is_gray_with_a_white_border_and_x`, `::test_canvas_for_no_planes` |
+| FR3.6 | `plane_csv.read_planes`, `render.FrameComposer.error_frame` (Pillow's bundled font), `cli.run`, D19 | `test_cli::test_bad_rows_become_error_frames_and_the_run_goes_on`, `::test_a_file_of_bad_rows_still_gives_one_frame_per_row`, `::test_a_failing_projection_gives_an_error_frame_and_exit_code_1`; `test_plane_csv::test_read_planes_*` (2 tests); `test_render::test_error_frame_on_a_tiny_canvas_keeps_border_and_x`, `::test_error_frame_shows_text_that_depends_on_frame_line_and_cause`, `::test_long_cause_is_wrapped_inside_the_border`, `::test_canvas_for_no_planes` |
 | FR4.1 | `projector.ReferenceProjector`, ALGORITHM section 2, D3 to D8 | `test_reference_projector::test_axis_aligned_plane_equals_numpy_slice`, `::test_triangle_on_gradient_has_constant_value_and_exact_pixel_count`, `::test_triangle_apex_row_is_one_centered_pixel`, `::test_oblique_plane_on_gradient_matches_closed_form`, `::test_non_integer_edges_have_no_holes_in_rows` |
 | FR4.2 | `geometry._build_rails`, D10 | `test_geometry::test_trapezoid_rails_and_size`, `::test_trapezoid_with_equal_top_is_triangle`; `test_cli::test_trapezoid_rows` |
 | FR4.3 | `geometry._build_rails`, D4 | `test_geometry::test_isosceles_triangle_size`, `::test_trapezoid_rails_and_size` |
