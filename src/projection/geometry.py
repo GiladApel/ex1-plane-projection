@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .errors import InvalidInputError, NotIsoscelesError
+from .sampler import SNAP
 
 REL_TOL = 1e-3
 COLLINEAR_TOL = 1e-6
@@ -110,14 +111,14 @@ def _build_rails(a1: np.ndarray, b1: np.ndarray, a2: np.ndarray, b2: np.ndarray)
     Pseudo-code:
         1. L  = |b1 - a1|
         2. v1 = (b1 - a1) / L, v2 = (b2 - a2) / L     (both rails advance in the same H steps)
-        3. H  = floor(L) + 1
-        4. W  = floor(max(|a2 - a1|, |b2 - b1|)) + 1  (widest row)
+        3. H  = floor(L + SNAP) + 1                       (SNAP: see sampler.py)
+        4. W  = floor(max(|a2 - a1|, |b2 - b1|) + SNAP) + 1  (widest row)
     """
     length = float(np.linalg.norm(b1 - a1))
     v1 = (b1 - a1) / length
     v2 = (b2 - a2) / length
-    height = math.floor(length) + 1
-    width = math.floor(max(np.linalg.norm(a2 - a1), np.linalg.norm(b2 - b1))) + 1
+    height = math.floor(length + SNAP) + 1
+    width = math.floor(max(np.linalg.norm(a2 - a1), np.linalg.norm(b2 - b1)) + SNAP) + 1
     return Rails(a1, v1, a2, v2, height, width)
 
 

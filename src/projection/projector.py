@@ -9,7 +9,7 @@ import numpy as np
 
 from .errors import InvalidInputError
 from .geometry import Plane
-from .sampler import Interpolation, sample_nearest, sample_trilinear
+from .sampler import HALF, SNAP, Interpolation, sample_nearest, sample_trilinear
 from .volume import Volume
 
 
@@ -79,7 +79,7 @@ class NumpyProjector(Projector):
         2. split the rows into chunks (one chunk when the frame is small)
         3. for each chunk, in parallel:
              x1 = 0 .. N-1 as a row, N = floor(max(d12 in chunk)) + 1
-             xf = floor((W-1)/2 - d12/2 + x1 + 0.5); keep[y, x1] = x1 <= floor(d12) and 0 <= xf < W
+             xf = floor((W-1)/2 - d12/2 + x1 + HALF); keep[y, x1] = x1 <= floor(d12 + SNAP) and 0 <= xf < W
              for the whole grid: p = a1[y] + x1*dp[y]; value = sample(M, p)
              (nearest sampling also clears keep where p is outside the volume)
              image[y, xf] = value where keep
@@ -93,7 +93,7 @@ class NumpyProjector(Projector):
         diff = (rails.A2 + y * rails.v2) - a1
         d12 = np.sqrt(diff[:, 0] * diff[:, 0] + diff[:, 1] * diff[:, 1] + diff[:, 2] * diff[:, 2])
         dp = diff / np.where(d12 > 0, d12, 1.0)[:, None]
-        count = np.floor(d12) + 1
+        count = np.floor(d12 + SNAP) + 1
 
         bounds = self._chunk_bounds(height, int(count.max()))
         jobs = [(slot, lo, hi) for slot, (lo, hi) in enumerate(zip(bounds[:-1], bounds[1:], strict=True))]
@@ -133,7 +133,7 @@ class NumpyProjector(Projector):
 
         xf = self._buffer("xf", slot, grid, np.float64)
         np.add(((width - 1) / 2.0 - d12[rows] / 2.0)[:, None], x1, out=xf)
-        xf += 0.5
+        xf += HALF
         np.floor(xf, out=xf)
         keep = (x1 < count_rows[:, None]) & (xf >= 0) & (xf < width)
 
@@ -161,7 +161,7 @@ class NumpyProjector(Projector):
         for axis, size in enumerate(volume.shape):
             np.multiply(x1, dp[:, axis, None], out=coord)
             coord += a1[:, axis, None]
-            coord += 0.5
+            coord += HALF
             np.floor(coord, out=coord)
             keep &= coord >= 0
             keep &= coord < size
@@ -231,9 +231,9 @@ class ReferenceProjector(Projector):
             d12 = |a2 - a1|
             dp  = (a2 - a1) / d12 if d12 > 0 else 0
             off = (W - 1) / 2 - d12 / 2
-            for x1 in 0 .. floor(d12):
+            for x1 in 0 .. floor(d12 + SNAP):
                 p = a1 + x1 * dp
-                x = floor(off + x1 + 0.5)
+                x = floor(off + x1 + HALF)
                 if 0 <= x < W: E[y][x] = sample(M, p)
         return E
         """
@@ -253,8 +253,8 @@ class ReferenceProjector(Projector):
             if d12 > 0:
                 dx, dy, dz = dx / d12, dy / d12, dz / d12
             off = (width - 1) / 2.0 - d12 / 2.0
-            for x1 in range(math.floor(d12) + 1):
-                x = math.floor(off + x1 + 0.5)
+            for x1 in range(math.floor(d12 + SNAP) + 1):
+                x = math.floor(off + x1 + HALF)
                 if 0 <= x < width:
                     image[y, x] = self._sample(data, a1x + x1 * dx, a1y + x1 * dy, a1z + x1 * dz)
         return image

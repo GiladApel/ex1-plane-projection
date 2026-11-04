@@ -7,6 +7,8 @@ import math
 import numba as nb
 import numpy as np
 
+from .sampler import HALF, SNAP
+
 
 @nb.njit(parallel=True, cache=True)
 def project_nearest(data, a1, v1, a2, v2, height, width, out):
@@ -15,9 +17,9 @@ def project_nearest(data, a1, v1, a2, v2, height, width, out):
     for y in 0 .. H-1:
         a1 = A1 + y*v1;  a2 = A2 + y*v2;  d12 = |a2 - a1|;  dp = (a2 - a1)/d12
         off = (W-1)/2 - d12/2
-        for x1 in 0 .. floor(d12):
-            x = floor(off + x1 + 0.5);  skip if x outside [0, W)
-            (i, j, k) = floor(a1 + x1*dp + 0.5);  out[y][x] = M[i][j][k] if inside M
+        for x1 in 0 .. floor(d12 + SNAP):
+            x = floor(off + x1 + HALF);  skip if x outside [0, W)
+            (i, j, k) = floor(a1 + x1*dp + HALF);  out[y][x] = M[i][j][k] if inside M
     """
     sx, sy, sz = data.shape
     for y in nb.prange(height):
@@ -33,13 +35,13 @@ def project_nearest(data, a1, v1, a2, v2, height, width, out):
             dy = dy / d12
             dz = dz / d12
         off = (width - 1) / 2.0 - d12 / 2.0
-        for x1 in range(int(np.floor(d12)) + 1):
-            xf = np.floor(off + x1 + 0.5)
+        for x1 in range(int(np.floor(d12 + SNAP)) + 1):
+            xf = np.floor(off + x1 + HALF)
             if xf < 0 or xf >= width:
                 continue
-            i = np.floor(a1x + x1 * dx + 0.5)
-            j = np.floor(a1y + x1 * dy + 0.5)
-            k = np.floor(a1z + x1 * dz + 0.5)
+            i = np.floor(a1x + x1 * dx + HALF)
+            j = np.floor(a1y + x1 * dy + HALF)
+            k = np.floor(a1z + x1 * dz + HALF)
             if 0 <= i < sx and 0 <= j < sy and 0 <= k < sz:
                 out[y, int(xf)] = data[int(i), int(j), int(k)]
 
@@ -62,8 +64,8 @@ def project_trilinear(data, a1, v1, a2, v2, height, width, out):
             dy = dy / d12
             dz = dz / d12
         off = (width - 1) / 2.0 - d12 / 2.0
-        for x1 in range(int(np.floor(d12)) + 1):
-            xf = np.floor(off + x1 + 0.5)
+        for x1 in range(int(np.floor(d12 + SNAP)) + 1):
+            xf = np.floor(off + x1 + HALF)
             if xf < 0 or xf >= width:
                 continue
             px = a1x + x1 * dx

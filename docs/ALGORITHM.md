@@ -13,10 +13,10 @@ Trapezoid (a', b, a'', c):     A1 = a',  B1 = b,   A2 = a'', B2 = c
 L  = |B1 - A1|                 (equals |B2 - A2| within tolerance, D9)
 v1 = (B1 - A1) / L
 v2 = (B2 - A2) / L
-H  = floor(L) + 1                                   (D3, D4)
+H  = floor(L + SNAP) + 1                            (D3, D4, D8)
 Wtop    = |A2 - A1|            (0 for a triangle)
 Wbottom = |B2 - B1|
-W  = floor(max(Wtop, Wbottom)) + 1                  (D4, D10)
+W  = floor(max(Wtop, Wbottom) + SNAP) + 1           (D4, D8, D10)
 ```
 
 Because of this, the projector never distinguishes triangle from trapezoid.
@@ -39,16 +39,18 @@ for each row y in 0 .. H-1:                          # independent rows, paralle
     d12 = |a2 - a1|
     dp  = (a2 - a1) / d12   if d12 > 0 else (0,0,0)
     off = (W-1)/2 - d12/2                            # centers the row, D5
-    for x1 in 0 .. floor(d12):
+    for x1 in 0 .. floor(d12 + SNAP):
         p = a1 + x1 * dp                             # closed form, D7
-        x = floor(off + x1 + 0.5)                    # D5, D8
+        x = floor(off + x1 + 0.5 + SNAP)             # D5, D8
         if x < 0 or x >= W: continue
-        (i, j, k) = floor(p + 0.5)                   # D8
+        (i, j, k) = floor(p + 0.5 + SNAP)            # D8
         if 0 <= i < sx and 0 <= j < sy and 0 <= k < sz:
             E[y, x] = M[i, j, k]                     # D6
         # else E[y, x] stays 0                       # FR5
 return E
 ```
+
+`SNAP = 1e-9`. Lengths and positions that are exact on paper (a row exactly 10 voxels wide, a point exactly halfway between two voxels) come out up to about 1e-13 too small after the floating-point steps above, so without `SNAP` a row could lose its last sample and a half could round down. `SNAP` restores the exact result and changes nothing that is more than 1e-9 from such a boundary; `test_known_answers.py` checks it against exact fractions (D8).
 
 ### Worked example
 
@@ -80,7 +82,7 @@ The full list, with the assignment's version, the reason and the effect on the i
 
 ## 3. Trilinear variant
 
-Steps `(i, j, k) = floor(p + 0.5)` and the lookup are replaced by:
+Steps `(i, j, k) = floor(p + 0.5 + SNAP)` and the lookup are replaced by:
 
 ```
 (i0, j0, k0) = floor(p)

@@ -27,7 +27,7 @@ for y < Dab:
 | D9 | Shape of the plane | Isosceles triangle or trapezoid | Any triangle or trapezoid with the stated point order; a plane that is not isosceles gets a warning and is projected as given | The lecturer's own example sheet has a triangle with legs 497.4 and 476.9 | None for isosceles planes; others are drawn instead of rejected |
 | D14 | Planes file | "A list of 3 or 4 points" | The lecturer's sheet format (a point count, then the coordinates) and two simpler layouts | The text leaves the layout open; the sheet fixes it | None |
 | D17 | Value types | Unsigned 8, 16 and 32 bits | Signed 8, 16 and 32 bits too, shifted to unsigned when negative | Real scans are often signed: the lecturer's `MRHead_1.nrrd` is `int16`, CT data is negative in air | None for unsigned data |
-| D2 | Sampling | `v = M[p]` for a point `p` with fractions | Nearest voxel, `floor(p + 0.5)` on each axis (D8); trilinear interpolation as an option | The text does not say how a fractional point picks a voxel | See the measurement below |
+| D2 | Sampling | `v = M[p]` for a point `p` with fractions | Nearest voxel, `floor(p + 0.5)` on each axis, a half rounding up even through floating-point noise (D8); trilinear interpolation as an option | The text does not say how a fractional point picks a voxel | See the measurement below |
 
 Additions that the text does not ask for, and that do not change the default output: trilinear sampling (`--interp trilinear`), world coordinates (`--world`), the choice of backend (`--backend`).
 

@@ -5,6 +5,13 @@ from enum import Enum
 
 import numpy as np
 
+# Positions and lengths that are exact on paper (a point halfway between two voxels, a row 10 voxels wide)
+# come out up to about 1e-13 too small after the floating-point steps of the walk. Adding SNAP before floor()
+# restores the exact result (SRS D8): a half rounds up, and an integer length keeps its last sample.
+# Nothing that is not within 1e-9 of such a boundary changes.
+SNAP = 1e-9
+HALF = 0.5 + SNAP
+
 
 class Interpolation(Enum):
     NEAREST = "nearest"
@@ -15,13 +22,13 @@ def sample_nearest(data: np.ndarray, px: float, py: float, pz: float):
     """Value of the voxel nearest to (px, py, pz), or 0 outside the volume.
 
     Pseudo-code:
-        1. (i, j, k) = floor(p + 0.5) per axis
+        1. (i, j, k) = floor(p + HALF) per axis, HALF = 0.5 + 1e-9
         2. return data[i][j][k] if all three are inside the volume, else 0
     """
     sx, sy, sz = data.shape
-    i = math.floor(px + 0.5)
-    j = math.floor(py + 0.5)
-    k = math.floor(pz + 0.5)
+    i = math.floor(px + HALF)
+    j = math.floor(py + HALF)
+    k = math.floor(pz + HALF)
     if 0 <= i < sx and 0 <= j < sy and 0 <= k < sz:
         return data[i, j, k]
     return 0
