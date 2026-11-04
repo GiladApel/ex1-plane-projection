@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -57,7 +58,8 @@ def read_planes(
                     (see _group_point_rows).
 
     Pseudo-code:
-        1. read all rows, drop empty cells at the end of a row (a trailing comma),
+        1. decode as UTF-8 (byte for byte when it is not, see below), read all rows,
+           drop empty cells at the end of a row (a trailing comma),
            keep the rows that are neither blank nor comments (starting with #), with their file line number
         2. if the first row has a non-empty, non-numeric cell: treat it as a header and drop it
         3. choose the layout (see _layout): the header "Number of Points ..." means counted;
@@ -79,12 +81,18 @@ def read_planes(
     if not path.is_file():
         raise InvalidInputError(f"CSV file not found: {path}")
 
-    with path.open(newline="", encoding="utf-8-sig") as handle:
-        rows = [
-            (n, cells)
-            for n, row in enumerate(csv.reader(handle), start=1)
-            if (cells := _drop_trailing_empty(row)) and not cells[0].lstrip().startswith("#")
-        ]
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        # Excel saves "CSV (Comma delimited)" in the system's code page (Windows-1255 on Hebrew Windows). The numbers
+        # are ASCII in every such code page, so a byte-for-byte decoding reads them; only header text is garbled.
+        text = raw.decode("latin-1")
+    rows = [
+        (n, cells)
+        for n, row in enumerate(csv.reader(io.StringIO(text, newline="")), start=1)
+        if (cells := _drop_trailing_empty(row)) and not cells[0].lstrip().startswith("#")
+    ]
 
     header = None
     if rows and _is_header(rows[0][1]):

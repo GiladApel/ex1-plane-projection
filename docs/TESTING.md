@@ -23,7 +23,7 @@
 | Interactive demo | The step-by-step explanation of the "How it works" tab rebuilds every pixel of 80 random triangles and trapezoids exactly as the reference backend does, nearest and trilinear; both tabs render without an exception (Streamlit's `AppTest`), including a pixel chosen by a click, pixels in the first, middle and last rows of both shapes and samplers, and a chosen pixel that no longer exists after the plane shrinks | `test_demo.py` (needs `demo/requirements.txt`; CI job "demo") |
 | Performance | 500^3 uint8, 40 random oblique planes, best of 3 medians. Absolute floors: Numba nearest 500 fps, Numba trilinear 250, NumPy nearest 100 (about half of the measured speed). Portable: Numba on all threads at least 3x its 1-thread speed (1.5x on 4-thread machines), Numba at least 1.4x NumPy (measured 4x on the reference machine, 1.9x on CI runners). End to end: the demo on 180 frames of 446x446 at 100+ fps projection and 30+ fps including encoding. Run with `pytest -m slow` | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-326 tests: 320 in the default run and 6 slow ones (2 of them portable, also run in CI). The 9 demo tests skip when Streamlit or Plotly is not installed; CI runs them in a job of their own.
+332 tests: 326 in the default run and 6 slow ones (2 of them portable, also run in CI). The 9 demo tests skip when Streamlit or Plotly is not installed; CI runs them in a job of their own.
 
 ## Failure reports
 
@@ -32,6 +32,10 @@ A failing test should say where the fault is, not only that there is one. Two pa
 - After a failing run, a section "failures by location" lists every failure as `test file:line -> src/projection file:line`, the second being the deepest line of the package that was running when an exception was raised, and the first line of the message.
 
 Both were checked by injecting faults into a copy of the code: a centering error was reported as a one-column shift in every pixel, and an exception in the sampler was traced to `src/projection/sampler.py:22`.
+
+## Fuzzing
+
+Robustness (NFR3) was also checked by fuzzing, outside the test suite: 276 runs of `Ex0.py` on random and damaged CSV files (random tokens, inserted quotes and line breaks, binary bytes, huge numbers, NaN, Hebrew text) and on bad volumes, and 600 NRRD files with truncated data, flipped bytes and broken header lines. It found two faults, both now fixed and covered by tests: a CSV that is not UTF-8, as Excel saves it on Hebrew Windows, ended as an internal error instead of being read (`test_plane_csv::test_excel_csv_in_a_windows_code_page_is_read`), and corrupt NRRD files raised exception types the loader did not expect, such as `StopIteration` for an empty file (`test_volume_io::test_corrupt_files_are_input_errors`). After the fixes every run ends with exit code 0 or 2 and no traceback.
 
 ## Demo testing
 
@@ -74,7 +78,7 @@ Statement coverage of the package is 92 percent (`pytest --cov=projection`). Two
 ## Running
 
 ```
-pytest                 # 320 tests, about 45 seconds (32 on MRHead, 9 on the demo)
+pytest                 # 326 tests, about 45 seconds (32 on MRHead, 9 on the demo)
 pytest -m slow         # all performance tests, about 20 seconds and about 150 MB of memory (run on mains power)
 pytest -m portable     # only the machine-independent speed tests, as in CI
 pytest --cov=projection --cov-report=term-missing

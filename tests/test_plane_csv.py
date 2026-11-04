@@ -41,6 +41,24 @@ def test_utf8_bom(tmp_path):
     assert len(parse_planes(path)) == 1
 
 
+def test_excel_csv_in_a_windows_code_page_is_read(tmp_path):
+    """Excel on Hebrew Windows saves "CSV (Comma delimited)" in Windows-1255, which is not valid UTF-8."""
+    path = tmp_path / "excel.csv"
+    path.write_bytes("# מישורים\nמספר נקודות,x1,y1,z1,x2,y2,z2,x3,y3,z3\r\n".encode("cp1255")
+                     + f"{TRI}\r\n{TRI}\r\n".encode("cp1255"))
+    planes = parse_planes(path)
+    assert len(planes) == 2
+    expected = parse_planes(write(tmp_path, TRI))[0]
+    assert [p.tolist() for p in planes[0].corners] == [p.tolist() for p in expected.corners]
+
+
+def test_binary_file_is_reported_not_crashed_on(tmp_path):
+    path = tmp_path / "binary.csv"
+    path.write_bytes(bytes(range(256)))
+    rows = read_planes(path)
+    assert rows and all(row.plane is None and row.error for row in rows)
+
+
 def test_bad_value_reports_line_number(tmp_path):
     with pytest.raises(InvalidInputError, match=r"planes\.csv:3: non-numeric"):
         parse_planes(write(tmp_path, f"{TRI}\n{TRI}\n5,0,x,0,10,0,10,10,0\n"))

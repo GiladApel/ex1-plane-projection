@@ -76,6 +76,23 @@ def test_rejects_garbage_file(tmp_path):
         load_nrrd(path)
 
 
+@pytest.mark.parametrize("damage", ["empty", "unknown type", "broken gzip", "truncated"])
+def test_corrupt_files_are_input_errors(tmp_path, damage):
+    """Each damage makes pynrrd raise a different exception type (StopIteration, KeyError, zlib.error, ...)."""
+    path = tmp_path / "v.nrrd"
+    nrrd.write(str(path), np.ones((5, 5, 5), np.uint8), {"encoding": "gzip"}, index_order="F")
+    raw = path.read_bytes()
+    body = raw.index(b"\n\n") + 2
+    path.write_bytes({
+        "empty": b"",
+        "unknown type": raw.replace(b"type: uint8", b"type: banana"),
+        "broken gzip": raw[:body] + bytes(b ^ 0x5A for b in raw[body:]),
+        "truncated": raw[:body + 5],
+    }[damage])
+    with pytest.raises(InvalidInputError, match="cannot read NRRD file"):
+        load_nrrd(path)
+
+
 def test_rejects_oversize_dimension():
     with pytest.raises(InvalidInputError, match="dimension"):
         Volume(np.zeros((1024, 2, 2), dtype=np.uint8))

@@ -32,8 +32,13 @@ def load_nrrd(path: str | Path) -> Volume:
         raise InvalidInputError(f"NRRD file not found: {path}")
     try:
         data, header = nrrd.read(str(path), index_order="F")
-    except (nrrd.NRRDError, OSError, ValueError) as exc:
-        raise InvalidInputError(f"cannot read NRRD file {path}: {exc}") from exc
+    except MemoryError:
+        raise
+    except Exception as exc:
+        # pynrrd reports corrupt files with many exception types (NRRDError, KeyError for an unknown type, zlib.error
+        # for broken gzip data, StopIteration for an empty file); any of them means the file, not this program, is bad.
+        reason = str(exc) or type(exc).__name__
+        raise InvalidInputError(f"cannot read NRRD file {path}: {reason}") from exc
 
     if data.ndim != 3:
         raise InvalidInputError(f"{path}: expected a 3D volume, got {data.ndim}D data")
