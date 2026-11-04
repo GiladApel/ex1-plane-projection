@@ -1,5 +1,8 @@
 """Numba kernels. Every floating-point expression mirrors ReferenceProjector in the same order,
-so results are bit-identical to the reference."""
+so results are bit-identical to the reference.
+
+half and snap are sampler.HALF and sampler.SNAP, passed as arguments: the on-disk cache (cache=True) would keep
+an imported global's value from compile time even after sampler.py changes."""
 from __future__ import annotations
 
 import math
@@ -7,11 +10,9 @@ import math
 import numba as nb
 import numpy as np
 
-from .sampler import HALF, SNAP
-
 
 @nb.njit(parallel=True, cache=True)
-def project_nearest(data, a1, v1, a2, v2, height, width, out):
+def project_nearest(data, a1, v1, a2, v2, height, width, out, half, snap):
     """Pseudo-code (docs/ALGORITHM.md section 2), rows run in parallel:
 
     for y in 0 .. H-1:
@@ -35,19 +36,19 @@ def project_nearest(data, a1, v1, a2, v2, height, width, out):
             dy = dy / d12
             dz = dz / d12
         off = (width - 1) / 2.0 - d12 / 2.0
-        for x1 in range(int(np.floor(d12 + SNAP)) + 1):
-            xf = np.floor(off + x1 + HALF)
+        for x1 in range(int(np.floor(d12 + snap)) + 1):
+            xf = np.floor(off + x1 + half)
             if xf < 0 or xf >= width:
                 continue
-            i = np.floor(a1x + x1 * dx + HALF)
-            j = np.floor(a1y + x1 * dy + HALF)
-            k = np.floor(a1z + x1 * dz + HALF)
+            i = np.floor(a1x + x1 * dx + half)
+            j = np.floor(a1y + x1 * dy + half)
+            k = np.floor(a1z + x1 * dz + half)
             if 0 <= i < sx and 0 <= j < sy and 0 <= k < sz:
                 out[y, int(xf)] = data[int(i), int(j), int(k)]
 
 
 @nb.njit(parallel=True, cache=True)
-def project_trilinear(data, a1, v1, a2, v2, height, width, out):
+def project_trilinear(data, a1, v1, a2, v2, height, width, out, half, snap):
     """Same row/column walk as project_nearest; each sample is the trilinear blend of the 8 corners
     around p (corners outside the volume count as 0), summed with di outermost and dk innermost."""
     sx, sy, sz = data.shape
@@ -64,8 +65,8 @@ def project_trilinear(data, a1, v1, a2, v2, height, width, out):
             dy = dy / d12
             dz = dz / d12
         off = (width - 1) / 2.0 - d12 / 2.0
-        for x1 in range(int(np.floor(d12 + SNAP)) + 1):
-            xf = np.floor(off + x1 + HALF)
+        for x1 in range(int(np.floor(d12 + snap)) + 1):
+            xf = np.floor(off + x1 + half)
             if xf < 0 or xf >= width:
                 continue
             px = a1x + x1 * dx

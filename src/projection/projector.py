@@ -211,7 +211,7 @@ class NumbaProjector(Projector):
         """Pseudo-code: validate/clear out, then run the compiled kernel (see kernels_numba.py)."""
         rails = plane.rails()
         image = self._prepare_out(volume, plane, out)
-        self._kernel(volume.data, rails.A1, rails.v1, rails.A2, rails.v2, rails.H, rails.W, image)
+        self._kernel(volume.data, rails.A1, rails.v1, rails.A2, rails.v2, rails.H, rails.W, image, HALF, SNAP)
         return image
 
 
