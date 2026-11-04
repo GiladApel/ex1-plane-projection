@@ -254,3 +254,43 @@ def test_read_planes_point_rows_report_the_line_of_the_bad_point(tmp_path):
 def test_parse_planes_still_raises_on_the_first_bad_row(tmp_path):
     with pytest.raises(InvalidInputError, match=r"planes\.csv:2: non-numeric"):
         parse_planes(write(tmp_path, f"{TRI}\n5,0,x,0,10,0,10,10,0\n0,0,0,5,5,5,10,10,10\n"))
+
+
+HEADER = "Number of Points (3 or 4),x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4"
+
+
+def test_comment_lines_are_skipped(tmp_path):
+    text = f"{HEADER}\n# planes for the test, with a, comma\n{COUNTED_TRI}\n  # indented comment\n{COUNTED_TRAP}\n"
+    rows = read_planes(write(tmp_path, text))
+    assert [(r.line, type(r.plane)) for r in rows] == [(3, Triangle), (5, Trapezoid)]
+
+
+def test_comments_between_point_blocks_separate_planes(tmp_path):
+    planes = parse_planes(write(tmp_path, f"# first\n{TRI_POINTS}# second\n{TRAP_POINTS}"))
+    assert [type(p) for p in planes] == [Triangle, Trapezoid]
+
+
+def test_a_bad_first_row_does_not_change_how_the_others_are_read(tmp_path):
+    missing = "3,5,0,0,0,10,0,10,10,,,,"           # a triangle row that lost its last number
+    rows = read_planes(write(tmp_path, f"{missing}\n{COUNTED_TRI}\n{COUNTED_TRAP}\n"))
+    assert rows[0].plane is None and rows[0].error == "3 points need 9 coordinates, got 8"
+    assert [type(r.plane) for r in rows[1:]] == [Triangle, Trapezoid]
+
+
+def test_the_lecturers_header_selects_the_counted_layout(tmp_path):
+    # without the header this single 9-number row would be read as a plain triangle
+    rows = read_planes(write(tmp_path, f"{HEADER}\n3,5,0,0,0,10,0,10,10\n"))
+    assert rows[0].plane is None and rows[0].error == "3 points need 9 coordinates, got 8"
+    assert isinstance(parse_planes(write(tmp_path, "3,5,0,0,0,10,0,10,10\n")).pop(), Triangle)
+
+
+def test_the_layout_most_rows_fit_wins(tmp_path):
+    rows = read_planes(write(tmp_path, f"{TRI}\n{TRI}\n{COUNTED_TRI}\n"))
+    assert [r.plane is not None for r in rows] == [True, True, False]
+    assert rows[2].error == "expected 9 or 12 values, got 10"
+
+
+def test_an_accepted_non_isosceles_plane_carries_its_warning(tmp_path):
+    rows = read_planes(write(tmp_path, f"{TRI}\n0,0,0,10,0,0,0,6,0\n"), warn=lambda message: None)
+    assert rows[0].warning is None
+    assert rows[1].plane is not None and rows[1].warning.startswith("plane is not isosceles")

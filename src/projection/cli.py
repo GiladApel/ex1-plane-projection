@@ -44,7 +44,8 @@ def run(args: argparse.Namespace) -> int:
     """Pseudo-code:
         1. check the options and the output folder; load the volume; read every plane of the CSV
            (a problem with a whole file stops here, before anything is written)
-        2. warn about every plane that could not be built: it will be an error frame
+        2. in plane order, warn about every plane accepted although not isosceles, and every plane that
+           could not be built (it will be an error frame)
         3. build the projector, the intensity window and the fixed-size canvas
         4. project the first good plane once, untimed (JIT warm-up)
         5. for each plane in CSV order:
@@ -63,9 +64,11 @@ def run(args: argparse.Namespace) -> int:
     if args.world and volume.origin is None:
         raise InvalidInputError(f"{args.nrrd}: --world needs 'space origin' and 'space directions' in the file")
     to_voxel = volume.world_to_voxel if args.world else None
-    rows = read_planes(args.csv, to_voxel=to_voxel, force=args.force, warn=_warn)
+    rows = read_planes(args.csv, to_voxel=to_voxel, force=args.force, warn=_accept)
     errors: dict[int, str] = {}
     for frame, row in enumerate(rows, start=1):
+        if row.warning is not None:
+            _warn(f"{args.csv}:{row.line}: {row.warning}")
         if row.error is not None:
             errors[frame] = f"line {row.line}: {row.error}"
             _warn(f"{args.csv}:{row.line}: {row.error}; frame {frame} is an error frame")
@@ -127,6 +130,10 @@ def run(args: argparse.Namespace) -> int:
 
 def _warn(message: str) -> None:
     print(f"warning: {message}", file=sys.stderr)
+
+
+def _accept(message: str) -> None:
+    """Accept non-isosceles planes while reading; run() prints their warnings in plane order."""
 
 
 def main(argv: list[str] | None = None) -> int:

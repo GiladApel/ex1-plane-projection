@@ -257,3 +257,12 @@ def test_script_runs_as_documented(inputs):
     )
     assert result.returncode == 0, result.stderr
     assert read_frames(mp4_path).shape[0] == 4
+
+
+def test_warnings_come_in_plane_order(inputs, capsys):
+    nrrd_path, csv_path, mp4_path = inputs
+    not_isosceles = "16,6,16, 6,26,16, 26,20,16"
+    csv_path.write_text("\n".join([CENTER_PLANE, "16,6,x, 6,26,16, 26,26,16", not_isosceles]) + "\n")
+    assert main([str(nrrd_path), str(csv_path), str(mp4_path), "--backend", "numpy"]) == EXIT_OK
+    err = capsys.readouterr().err
+    assert err.index("planes.csv:2:") < err.index("planes.csv:3:")

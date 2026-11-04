@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,11 +17,13 @@ Warn = Callable[[str], None]
 
 @dataclass(frozen=True)
 class PlaneRow:
-    """One plane of a CSV file: the plane, or the reason it could not be built and the line of the problem."""
+    """One plane of a CSV file: the plane, or the reason it could not be built and the line of the problem.
+    warning is set for a plane that was accepted although it is not isosceles."""
 
     line: int
     plane: Plane | None
     error: str | None = None
+    warning: str | None = None
 
 
 def parse_planes(
@@ -55,13 +58,13 @@ def read_planes(
 
     Pseudo-code:
         1. read all rows, drop empty cells at the end of a row (a trailing comma),
-           keep the non-blank rows with their file line number
+           keep the rows that are neither blank nor comments (starting with #), with their file line number
         2. if the first row has a non-empty, non-numeric cell: treat it as a header and drop it
-        3. if the first row has 3 cells: point-per-row layout
-               split the rows into groups of 3 or 4, build one plane per group
-           else, for each row (keeping its file line number), parse every cell as a float:
-               counted layout (the first row is n followed by 3n numbers, n = 3 or 4):
-                   every row must be n followed by exactly 3n coordinates
+        3. choose the layout (see _layout): the header "Number of Points ..." means counted;
+           otherwise the layout that most rows fit, so one bad row cannot change how the others are read
+        4. point-per-row layout: split the rows into groups of 3 or 4, build one plane per group
+           otherwise, for each row (keeping its file line number), parse every cell as a float:
+               counted layout: every row must be n (3 or 4) followed by exactly 3n coordinates
                plane-per-row layout: require 9 or 12 numbers, the same for all rows
                reshape to points, apply to_voxel if given, build and validate the plane
         4. a plane that is valid except that it is not isosceles:
@@ -77,22 +80,51 @@ def read_planes(
         raise InvalidInputError(f"CSV file not found: {path}")
 
     with path.open(newline="", encoding="utf-8-sig") as handle:
-        rows = [(n, cells) for n, row in enumerate(csv.reader(handle), start=1) if (cells := _drop_trailing_empty(row))]
+        rows = [
+            (n, cells)
+            for n, row in enumerate(csv.reader(handle), start=1)
+            if (cells := _drop_trailing_empty(row)) and not cells[0].lstrip().startswith("#")
+        ]
 
+    header = None
     if rows and _is_header(rows[0][1]):
-        rows = rows[1:]
+        header, rows = rows[0][1], rows[1:]
     if not rows:
         raise InvalidInputError(f"{path}: no planes found")
 
-    if len(rows[0][1]) == 3:
+    layout = _layout(header, rows)
+    if layout == "point":
         groups = _group_point_rows(path, rows)
         return [_plane_from_point_rows(path, group, to_voxel, force, warn) for group in groups]
-    return _planes_from_plane_rows(path, rows, to_voxel, force, warn)
+    return _planes_from_plane_rows(path, rows, layout == "counted", to_voxel, force, warn)
 
 
-def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool, warn: Warn | None) -> list[PlaneRow]:
+def _layout(header: list[str] | None, rows: list) -> str:
+    """"counted", "plain" or "point".
+
+    Pseudo-code:
+        1. a header whose first cell starts with "Number of Points" (the lecturer's sheet) -> counted
+        2. otherwise each row votes for the layout it fits: 3 cells -> point; n (3 or 4) followed by 3n
+           numbers -> counted; 9 or 12 cells -> plain; anything else does not vote
+        3. the layout with the most votes wins; a tie goes to counted, then plain
+    """
+    if header and header[0].strip().lower().startswith("number of points"):
+        return "counted"
+    votes: Counter[str] = Counter()
+    for _, cells in rows:
+        if len(cells) == 3:
+            votes["point"] += 1
+        elif _is_counted(cells):
+            votes["counted"] += 1
+        elif len(cells) in POINT_COUNTS:
+            votes["plain"] += 1
+    return max(("counted", "plain", "point"), key=lambda layout: votes[layout])
+
+
+def _planes_from_plane_rows(
+    path: Path, rows: list, counted: bool, to_voxel, force: bool, warn: Warn | None
+) -> list[PlaneRow]:
     planes: list[PlaneRow] = []
-    counted = _is_counted(rows[0][1])
     expected: int | None = None
     for line, row in rows:
         try:
@@ -105,7 +137,7 @@ def _planes_from_plane_rows(path: Path, rows: list, to_voxel, force: bool, warn:
             points = values.reshape(-1, 3)
             if to_voxel is not None:
                 points = to_voxel(points)
-            planes.append(PlaneRow(line, _build_plane(points, force, warn, f"{path}:{line}")))
+            planes.append(PlaneRow(line, *_build_plane(points, force, warn, f"{path}:{line}")))
         except InvalidInputError as exc:
             planes.append(PlaneRow(line, None, str(exc)))
     return planes
@@ -171,19 +203,21 @@ def _plane_from_point_rows(path: Path, rows: list, to_voxel, force: bool, warn: 
     try:
         if to_voxel is not None:
             corners = to_voxel(corners)
-        return PlaneRow(first_line, _build_plane(corners, force, warn, f"{path}:{first_line}"))
+        return PlaneRow(first_line, *_build_plane(corners, force, warn, f"{path}:{first_line}"))
     except InvalidInputError as exc:
         return PlaneRow(first_line, None, str(exc))
 
 
-def _build_plane(points: np.ndarray, force: bool, warn: Warn | None, where: str) -> Plane:
+def _build_plane(points: np.ndarray, force: bool, warn: Warn | None, where: str) -> tuple[Plane, None, str | None]:
+    """(plane, no error, warning or None) for PlaneRow; a non-isosceles plane is accepted only when warn is given."""
     try:
-        return plane_from_points(points, force=force)
+        return plane_from_points(points, force=force), None, None
     except NotIsoscelesError as exc:
         if warn is None:
             raise
-        warn(f"{where}: {exc}; projected as given")
-        return plane_from_points(points, force=True)
+        warning = f"{exc}; projected as given"
+        warn(f"{where}: {warning}")
+        return plane_from_points(points, force=True), None, warning
 
 
 def _drop_trailing_empty(row: list[str]) -> list[str]:
