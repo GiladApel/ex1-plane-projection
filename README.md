@@ -8,7 +8,7 @@ Course: Introduction to Software Engineering, Ariel University. Assignment: Ex1.
 
 ![A plane turning through the MRHead volume, one frame of the demo video every 8 degrees](docs/experiment/preview.gif)
 
-*A plane turning 360 degrees through the head, made by `Ex0.py` ([full video](docs/experiment/mrhead_rotate.mp4), [more runs](docs/EXPERIMENT.md)).*
+*A plane turning 360 degrees through the head, made by `Ex0.py` ([full video](docs/experiment/mrhead_rotate.mp4), [more runs](docs/EXPERIMENT.md), [try it in the browser](https://ex1-plane-projection-wzrd67capf6d5sbscqvb2s.streamlit.app/)).*
 
 ## Problem
 
@@ -91,12 +91,14 @@ Every pixel was also sampled with `vtkImageReslice`, the filter 3D Slicer draws 
 
 ## Interactive demo
 
+**Live:** [https://ex1-plane-projection-wzrd67capf6d5sbscqvb2s.streamlit.app/](https://ex1-plane-projection-wzrd67capf6d5sbscqvb2s.streamlit.app/), nothing to install. To run it locally:
+
 ```
 pip install -r demo/requirements.txt
 streamlit run demo/app.py
 ```
 
-Sliders move, turn and size a triangle or trapezoid inside MRHead (downloaded on first use) or a synthetic volume. The page shows the plane in the volume's box, its projected image with the size and the time per plane, and the plane as a row of the lecturer's CSV format, ready to paste into a file for `Ex0.py`. The same app can be hosted on Streamlit Community Cloud from this repository (main file `demo/app.py`).
+Sliders move, turn and size a triangle or trapezoid inside MRHead (downloaded on first use) or a synthetic volume. The page shows the plane in the volume's box, its projected image with the size and the time per plane, and the plane as a row of the lecturer's CSV format, ready to paste into a file for `Ex0.py`. The live version runs this file on Streamlit Community Cloud; after a period without visitors it sleeps and takes about a minute to wake up.
 
 ## Design in short
 
