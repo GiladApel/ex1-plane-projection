@@ -40,13 +40,13 @@ The assignment's demo is `python Ex0.py file.nrrd file.csv file.mp4`. It is cove
 - automatically on real data: `test_real_data.py` runs the published MRHead experiments and compares every frame with recorded values and the committed videos;
 - by eye on real data (MRHead, CTChest) to judge the picture itself; the results are in [EXPERIMENT.md](EXPERIMENT.md).
 
-Video content is checked by decoding the mp4 and comparing frame counts, sizes and brightness, and on MRHead the mean difference of every frame from the exact frame (at most 2 gray levels; the measured codec noise is up to 1.6, a one-pixel shift gives 2.8 or more). Exact pixel equality is asserted between backends and against the recorded CRC-32 values, never on decoded video, because H.264 is lossy.
+Video content is checked by decoding the mp4 and comparing frame counts, sizes and brightness, and on MRHead by checking that every decoded frame is closer to its exact frame than to that frame moved by one pixel or to its neighboring frames. A fixed limit on the difference did not work: the codec noise is up to 1.6 gray levels on Windows and 2.05 on macOS, whose decoder converts colors slightly differently, while a one-pixel shift costs 2.8 or more. The comparison calibrates itself and keeps a margin of more than 2x even with simulated extra decoder noise of ±2 gray levels. Exact pixel equality is asserted between backends and against the recorded CRC-32 values, never on decoded video, because H.264 is lossy.
 
 ## Real data
 
 `tests/test_real_data.py` needs `data/MRHead.nrrd` (`python scripts/download_data.py MRHead`, 6.6 MB). Without it the tests skip locally. CI downloads it once per cache and sets `REAL_DATA_REQUIRED=1`, which turns a missing file into a failure, so these tests cannot silently stop running there.
 
-The recorded frames are CRC-32 values, one per frame, in `tests/data/mrhead_golden.json` (5 KB instead of 50 MB of images). A failure lists the frames that changed. After an intended change of the output, regenerate the file with `UPDATE_GOLDEN=1 pytest tests/test_real_data.py -k "golden and numpy"` and re-make the videos with the commands in EXPERIMENT.md; the video test fails until both are done.
+The recorded frames are CRC-32 values, one per frame, in `tests/data/mrhead_golden.json` (5 KB instead of 50 MB of images). A failure lists the frames that changed. After an intended change of the output, regenerate the file with `UPDATE_GOLDEN=1 pytest tests/test_real_data.py -k "golden and numpy"` and re-make the videos with the commands in EXPERIMENT.md. The golden values catch any change of a single pixel; the video comparison only catches visible ones (a frame moved by a pixel, frames out of order), so re-making the videos is a step to remember, not one the tests enforce.
 
 These tests found a real fault: after a change of the rounding constants in `sampler.py`, the Numba backend kept the old values, because Numba's on-disk cache does not notice changed globals imported from another module. The kernels now take the constants as arguments.
 

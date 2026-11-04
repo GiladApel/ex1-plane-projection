@@ -6,7 +6,7 @@ sets REAL_DATA_REQUIRED=1, which turns the skip into a failure, so these tests c
 Known answers:
 - a plane on a voxel grid plane is exactly that slice of the array (no oracle code involved);
 - the planes of the published experiments (docs/experiment/*.csv) still give the published images: a CRC-32
-  per frame in tests/data/mrhead_golden.json, and the committed MP4 files within video-codec noise;
+  per frame in tests/data/mrhead_golden.json, and the committed MP4 files up to video-codec noise;
 - world coordinates (--world) give the same images as the equivalent voxel coordinates.
 After an intended change to the output, regenerate the golden file with UPDATE_GOLDEN=1 and re-make the videos.
 """
@@ -30,7 +30,6 @@ ROOT = Path(__file__).resolve().parent.parent
 MRHEAD = ROOT / "data" / "MRHead.nrrd"
 EXPERIMENT = ROOT / "docs" / "experiment"
 GOLDEN = Path(__file__).resolve().parent / "data" / "mrhead_golden.json"
-CODEC_NOISE = 2.0   # largest mean |difference| per frame allowed between an MP4 frame and the exact frame
 
 if not MRHEAD.is_file():
     if os.environ.get("REAL_DATA_REQUIRED"):
@@ -138,11 +137,18 @@ def expected_frames(volume, planes, mode):
 
 
 def assert_video_matches(path, expected):
+    """Every decoded frame is closer (mean |difference|) to its exact frame than to that frame moved by one pixel
+    or to the frames before and after it. Codec noise differs between platforms' decoders (up to 1.6 gray levels
+    here, 2.05 on macOS), so a fixed limit would not hold; this comparison calibrates itself."""
     decoded = read_frames(path)[..., 0].astype(np.float64)
+    expected = expected.astype(np.float64)
     assert decoded.shape == expected.shape, f"{path.name}: {decoded.shape}, expected {expected.shape}"
-    noise = np.abs(decoded - expected).mean(axis=(1, 2))
-    worst = int(noise.argmax())
-    assert noise[worst] <= CODEC_NOISE, f"{path.name}: frame {worst + 1} differs by {noise[worst]:.2f} on average"
+    own = np.abs(decoded - expected).mean(axis=(1, 2))
+    rival = np.min([np.abs(decoded - np.roll(expected, step, axis)).mean(axis=(1, 2))
+                    for step in (-1, 1) for axis in (0, 1, 2)], axis=0)
+    wrong = np.nonzero(rival < own)[0]
+    assert not len(wrong), (f"{path.name}: {len(wrong)} frames look moved by a pixel or a frame, "
+                            f"first frame {wrong[0] + 1} ({own[wrong[0]]:.2f} from its own, {rival[wrong[0]]:.2f})")
 
 
 @pytest.mark.parametrize("mode", MODES, ids=lambda m: m.value)
