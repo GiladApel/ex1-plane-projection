@@ -131,12 +131,58 @@ def random_planes(volume: Volume, count: int) -> list[Plane]:
     return planes
 
 
+def resliced_image(source: vtk.vtkImageData, plane: Plane, linear: bool) -> np.ndarray:
+    """The plane's image as vtkImageReslice reads it, pixel for pixel on our sample points."""
+    image = np.zeros(plane.shape, dtype=np.float64)
+    for y in range(plane.shape[0]):
+        start, step, first, last = row_samples(plane, y)
+        values = resliced_row(source, start, step, last - first + 1, linear)
+        columns = np.arange(first, last + 1)
+        keep = (columns >= 0) & (columns < plane.shape[1])
+        image[y, columns[keep]] = values[keep]
+    return image
+
+
+def draw_figure(volume: Volume, source: vtk.vtkImageData, sets: list, path: Path) -> None:
+    """One row per set (its middle plane): ours, VTK nearest, the difference, VTK linear."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    projector = make_projector()
+    lo, hi = np.percentile(volume.data[volume.data > 0], [1, 99])
+    figure, axes = plt.subplots(len(sets), 4, figsize=(12, 3.1 * len(sets)), squeeze=False)
+    for row, (name, planes) in zip(axes, sets, strict=True):
+        plane = planes[len(planes) // 2]
+        ours = projector.project(volume, plane).astype(np.float64)
+        nearest = resliced_image(source, plane, linear=False)
+        linear = resliced_image(source, plane, linear=True)
+        differ = int(np.count_nonzero(ours != nearest))
+        panels = [
+            (ours, "this program (nearest)", "gray", (lo, hi)),
+            (nearest, "vtkImageReslice, nearest", "gray", (lo, hi)),
+            (np.abs(ours - nearest), f"difference: {differ} of {ours.size} pixels", "magma", (0, 1)),
+            (linear, "vtkImageReslice, linear (Slicer's default view)", "gray", (lo, hi)),
+        ]
+        for axis, (image, title, cmap, limits) in zip(row, panels, strict=True):
+            axis.imshow(image, cmap=cmap, vmin=limits[0], vmax=limits[1], interpolation="nearest")
+            axis.set_title(title, fontsize=9)
+            axis.set_xticks([])
+            axis.set_yticks([])
+        row[0].set_ylabel(name, fontsize=9)
+    figure.tight_layout()
+    figure.savefig(path, dpi=110, facecolor="white")
+    print(f"wrote {path}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("nrrd", type=Path)
     parser.add_argument("csv", type=Path, nargs="*")
     parser.add_argument("--random", type=int, default=0)
     parser.add_argument("--interp", choices=[m.value for m in Interpolation], default="nearest")
+    parser.add_argument("--figure", type=Path, help="draw the middle plane of each set to this PNG instead of counting")
     args = parser.parse_args()
 
     volume = load_nrrd(args.nrrd)
@@ -145,6 +191,9 @@ def main() -> int:
     sets = [(path.name, parse_planes(path, force=True)) for path in args.csv]
     if args.random:
         sets.append((f"{args.random} random oblique planes", random_planes(volume, args.random)))
+    if args.figure:
+        draw_figure(volume, source, sets, args.figure)
+        return 0
     print(f"{args.nrrd.name} {volume.shape} {volume.dtype}, {args.interp}, VTK {vtk.vtkVersion.GetVTKVersion()}")
     for name, planes in sets:
         s = compare(volume, source, planes, linear)

@@ -64,6 +64,10 @@ VTK gets only the sample points; it reads the volume itself, with its own axis o
 | MRHead, rotation (run 3) | trilinear | 180 | 8,845,892 | 99.997% | 300, by 1 gray level |
 | MRHead, random oblique planes | trilinear | 200 | 824,912 | 99.995% | 44, by 1 gray level |
 
+![This program and vtkImageReslice on the middle plane of the axial sweep, the rotation and the random planes: the nearest-voxel images are identical, and the linear view of 3D Slicer is shown for reference](experiment/slicer_comparison.png)
+
+*The middle plane of three sets, drawn by `python scripts/compare_slicer.py data/MRHead.nrrd docs/experiment/mrhead_sweep.csv docs/experiment/mrhead_rotate.csv --random 9 --figure docs/experiment/slicer_comparison.png`. The third column is the absolute difference, 0 on every pixel; the fourth is the smoother linear interpolation 3D Slicer shows by default.*
+
 **Nearest voxel: identical except exactly at a half.** Every differing pixel has its sample point within 0.00001 voxel of the boundary between two voxels on some axis, where both voxels are equally near. This program rounds an exact half up (D8, checked against exact fractions), and VTK computes the rounding at a slightly different floating-point precision, so at such a point the two can pick neighboring voxels. Away from these points the images are the same, which confirms the axis order, the reading of the NRRD file, the rounding rule and the bounds.
 
 **Trilinear: within one gray level.** The two programs blend the same 8 voxels with the same weights; the result is rounded to an integer after the blend, and when it lands within rounding error of a half the two can round to neighboring values. The largest difference is 1. Pixels within one voxel of the volume's edge are left out, because there VTK and this program treat the missing neighbors differently (this program counts them as 0, FR5.1).
