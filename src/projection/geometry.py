@@ -29,10 +29,16 @@ class Plane:
     """A planar region described by two rails; Triangle and Trapezoid are the concrete shapes."""
 
     def __init__(self, a1: np.ndarray, b1: np.ndarray, a2: np.ndarray, b2: np.ndarray) -> None:
+        self._corners = (a1, b1, a2, b2)
         self._rails = _build_rails(a1, b1, a2, b2)
 
     def rails(self) -> Rails:
         return self._rails
+
+    @property
+    def corners(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """The rail end points (A1, B1, A2, B2) as given: (a', b, a'', c), or (a, b, a, c) for a triangle."""
+        return self._corners
 
     @property
     def shape(self) -> tuple[int, int]:

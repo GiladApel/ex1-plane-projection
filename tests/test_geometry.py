@@ -107,6 +107,13 @@ def test_trapezoid_rejects_fully_degenerate():
         Trapezoid((0, 0, 0), (5, 0, 0), (0, 0, 0), (5, 0, 0))
 
 
+def test_corners_are_the_points_as_given():
+    triangle = Triangle((5, 0, 0), (0, 10, 0), (10, 10, 0))
+    assert [p.tolist() for p in triangle.corners] == [[5, 0, 0], [0, 10, 0], [5, 0, 0], [10, 10, 0]]
+    trapezoid = Trapezoid((2, 0, 0), (0, 10, 0), (8, 0, 0), (10, 10, 0))
+    assert [p.tolist() for p in trapezoid.corners] == [[2, 0, 0], [0, 10, 0], [8, 0, 0], [10, 10, 0]]
+
+
 def test_plane_from_points_dispatch():
     assert isinstance(plane_from_points([(5, 0, 0), (0, 10, 0), (10, 10, 0)]), Triangle)
     assert isinstance(plane_from_points([(2, 0, 0), (0, 10, 0), (8, 0, 0), (10, 10, 0)]), Trapezoid)
