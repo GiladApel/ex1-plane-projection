@@ -1,32 +1,17 @@
 # Plane Projection of a 3D Volume
 
-[![tests](https://github.com/GiladApel/ex1-plane-projection/actions/workflows/ci.yml/badge.svg)](https://github.com/GiladApel/ex1-plane-projection/actions/workflows/ci.yml)
+[![tests](https://github.com/GiladApel/ex1-plane-projection/actions/workflows/ci.yml/badge.svg)](https://github.com/GiladApel/ex1-plane-projection/actions/workflows/ci.yml) ![Python 3.10 to 3.14](https://img.shields.io/badge/python-3.10%20to%203.14-3776AB?logo=python&logoColor=white) ![Linux, Windows, macOS](https://img.shields.io/badge/CI-Linux%20%7C%20Windows%20%7C%20macOS-555) [![live demo](https://img.shields.io/badge/live%20demo-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://ex1-plane-projection-wzrd67capf6d5sbscqvb2s.streamlit.app/)
 
-Given a 3D raster volume `M` (NRRD, uint8/16/32) and a plane defined by 3 points (isosceles triangle) or 4 points (isosceles trapezoid), compute the 2D image of the volume projected onto that plane. A CSV file lists the planes; the demo renders one video frame per plane.
+**Ex1, Introduction to Software Engineering, Ariel University.** Given a 3D raster volume `M[x][y][z]` (NRRD, unsigned 8/16/32-bit, `1 <= sx, sy, sz < 2^10`) and a plane given by 3 points (isosceles triangle, `dist(a,b) = dist(a,c)`) or 4 points (isosceles trapezoid), compute the 2D image of the volume on that plane: one pixel per unit step, 0 where a sample falls outside `M`. A CSV file lists the planes; `Ex0.py` renders one video frame per plane.
 
-Course: Introduction to Software Engineering, Ariel University. Assignment: Ex1.
+<table><tr>
+<td width="70%"><img src="docs/experiment/hero.png" alt="Three planes through the MRHead scan in 3D, each covered with its projected image, and the three images"></td>
+<td><img src="docs/experiment/preview.gif" width="100%" alt="A plane turning through the MRHead volume"></td>
+</tr></table>
 
-![A plane turning through the MRHead volume, one frame of the demo video every 8 degrees](docs/experiment/preview.gif)
+*Left: an axial trapezoid, an oblique triangle and a tilted coronal trapezoid through the MRHead scan, each covered with the image `Ex0.py` computes for it. Right: a plane turning 360 degrees ([full video](docs/experiment/mrhead_rotate.mp4), [more runs](docs/EXPERIMENT.md), [try it in the browser](https://ex1-plane-projection-wzrd67capf6d5sbscqvb2s.streamlit.app/)).*
 
-*A plane turning 360 degrees through the head, made by `Ex0.py` ([full video](docs/experiment/mrhead_rotate.mp4), [more runs](docs/EXPERIMENT.md), [try it in the browser](https://ex1-plane-projection-wzrd67capf6d5sbscqvb2s.streamlit.app/)).*
-
-## Problem
-
-`M[x][y][z]` is an unsigned integer volume of size `sx*sy*sz`, with `1 <= sx,sy,sz < 2^10`. A plane is given by points `a, b, c` with `dist(a,b) = dist(a,c)`. The output image `E` has one pixel per unit step along the plane. Pixels whose sample position falls outside `M` are 0.
-
-The assignment's pseudo-code is not fully defined (off-by-one at the apex, non-integer sizes, float coordinates). Every such gap is resolved explicitly in [docs/SRS.md](docs/SRS.md) and the exact algorithm is in [docs/ALGORITHM.md](docs/ALGORITHM.md).
-
-## Scope
-
-In scope:
-- NRRD loading (3D, integer 8/16/32 bit, no multi-component data). Signed data is shifted to unsigned.
-- Triangle and trapezoid planes, in voxel-index coordinates (optionally world coordinates).
-- Nearest-neighbor sampling (default) and trilinear sampling (optional extra).
-- Three interchangeable projector backends: reference (literal loops), NumPy, Numba.
-- CSV of planes in, mp4 video out, one frame per plane.
-- Performance: at least 100 fps projection on a 500^3 volume (hard minimum 30 fps).
-
-Out of scope: GUI, volume rendering, non-uniform voxel spacing in voxel mode, multi-channel volumes.
+**Scope.** In: NRRD loading (3D, integer 8/16/32-bit; signed data is shifted to unsigned) · triangles and trapezoids in voxel or world coordinates · nearest sampling (default) and trilinear · three interchangeable backends (reference, NumPy, Numba) · CSV in, mp4 out · at least 100 fps on a 500^3 volume (hard minimum 30). Out of scope: GUI, volume rendering, non-uniform voxel spacing in voxel mode, multi-channel volumes.
 
 ## Quick start
 
@@ -128,19 +113,15 @@ The live version runs this file on Streamlit Community Cloud; after a period wit
 
 Also: [docs/DESIGN.md](docs/DESIGN.md) (architecture).
 
-## Assumptions to confirm
+## Assumptions and changes to the pseudo-code
 
-The assignment leaves these points open; the choices below are documented in [docs/SRS.md](docs/SRS.md) section 6 and are easy to change.
+The assignment's pseudo-code leaves gaps (the apex row, non-integer sizes, fractional points). The ones that matter most:
 
-1. CSV coordinates are voxel indices (`--world` switches to NRRD world coordinates).
-2. The lecturer's example sheet defines the CSV format (a point count, then the coordinates); two simpler layouts are also accepted (SRS FR2).
-3. Nearest-neighbor sampling is the default reading of `v = M[p]`; trilinear is available with `--interp trilinear`.
+- **Sampling `v = M[p]`** is read as the nearest voxel, `floor(p + 0.5)` on each axis (trilinear with `--interp trilinear`). Truncation instead would move about half of the pixels; this is the one open point to confirm with the lecturer.
+- **Rows and size:** the apex is row 0 (the text moves `a1, a2` before the first row is read), and the image is `floor(Dab) + 1` by `floor(Dbc) + 1`, so every sample has a pixel.
+- **Input:** CSV points are voxel indices (`--world` for NRRD world coordinates), in the layout of the lecturer's example sheet; a plane that is not isosceles is projected with a warning.
 
-## Known limitations
-
-- The brightness window is global per volume (padding at the minimum value is ignored), so soft tissue in CT shows with moderate contrast; tissue-specific windows are out of scope (see EXPERIMENT.md).
-- Projection works in voxel space; anisotropic voxel spacing is only used by `--world`.
-- All timings come from one machine.
+Every gap and every deviation, with its effect on the image: [docs/DEVIATIONS.md](docs/DEVIATIONS.md) and [docs/SRS.md](docs/SRS.md) sections 5 and 6. Known limitations: a global brightness window per volume, voxel-space projection (spacing is used only by `--world`), and timings from one machine.
 
 ## Tests
 

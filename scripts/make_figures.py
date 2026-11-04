@@ -2,6 +2,7 @@
 
 python scripts/make_figures.py        # needs matplotlib: pip install -e ".[figures]"
 python scripts/make_figures.py --gif  # docs/experiment/preview.gif from the rotation video, for the README
+python scripts/make_figures.py --hero # docs/experiment/hero.png: three planes through MRHead in 3D, for the README
 
 Writes docs/algorithm_overview.png and docs/algorithm_changes.png. Every number and image in the
 figures is computed with the project's own classes, and the script stops with an assertion error if
@@ -517,7 +518,92 @@ def preview_gif(video: Path, path: Path, step: int = 4, side: int = 200, fps: in
     print(f"wrote {path.relative_to(ROOT)}: {len(images)} frames, {path.stat().st_size / 1e6:.2f} MB")
 
 
+HERO_PLANES = (
+    (BLUE, Trapezoid((40, 100, 25), (230, 100, 0), (40, 100, 105), (230, 100, 129))),     # axial
+    ("#E69F00", Triangle((128, 10, 65), (20, 220, 50), (236, 220, 80))),                    # sagittal, oblique
+    (GREEN, Trapezoid((150, 30, 14.5), (175, 230, 0), (150, 30, 114.5), (175, 230, 129))),  # coronal, tilted
+)
+
+
+def hero(volume_path: Path, path: Path) -> None:
+    """Three planes through MRHead in 3D, each covered with its own projected image, and the three images beside it.
+
+    Pseudo-code:
+        1. for each plane: E = projection, gray = the intensity window of Ex0.py, mask = pixels inside the shape
+           (a projection of an all-ones volume)
+        2. pixel (y, x) is the square around mid(y) + (x - (W-1)/2) * dp, where mid(y) is the middle of row y and dp
+           the row direction: the inverse of the walk's centering, so the texture sits where the samples were taken
+        3. all squares of all planes go into one Poly3DCollection, so matplotlib orders them by depth across planes
+    """
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
+
+    from projection import Volume, load_nrrd, make_projector
+    from projection.render import IntensityWindow
+
+    background, edge = "#0d1117", "#59616b"
+    volume = load_nrrd(volume_path)
+    window = IntensityWindow.from_volume(volume)
+    projector = make_projector("auto")
+    ones = Volume(np.ones(volume.shape, np.uint8))
+    top = volume.shape[1] - 1
+
+    def shown(points):   # voxel (x, y, z) to display (x, z, up): voxel y runs from the top of the head down
+        points = np.asarray(points, dtype=np.float64)
+        return np.stack([points[..., 0], points[..., 2], top - points[..., 1]], axis=-1)
+
+    squares, colors, images = [], [], []
+    for color, plane in HERO_PLANES:
+        rails = plane.rails()
+        gray = window.apply(projector.project(volume, plane))
+        mask = projector.project(ones, plane) > 0
+        images.append((color, gray, mask))
+        last = rails.H - 1
+        base = (rails.A2 + last * rails.v2) - (rails.A1 + last * rails.v1)
+        across = base / np.linalg.norm(base)
+        middle, down = (rails.A1 + rails.A2) / 2, (rails.v1 + rails.v2) / 2
+        corners = np.array([[-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0.5, -0.5]])
+        for y, x in zip(*np.nonzero(mask), strict=True):
+            rows, cols = y + corners[:, 0], x + corners[:, 1] - (rails.W - 1) / 2
+            squares.append(shown(middle + rows[:, None] * down + cols[:, None] * across))
+            g = gray[y, x] / 255
+            colors.append((g, g, g, 1.0))
+
+    figure = plt.figure(figsize=(9, 5), facecolor=background)
+    axis = figure.add_axes([-0.04, -0.05, 0.8, 1.12], projection="3d", facecolor=background)
+    axis.add_collection3d(Poly3DCollection(squares, facecolors=colors, edgecolors=colors, linewidths=0.35))
+    for color, plane in HERO_PLANES:
+        a1, b1, a2, b2 = plane.corners
+        outline = shown(np.array([a1, b1, b2, a2, a1]))
+        axis.plot(outline[:, 0], outline[:, 1], outline[:, 2], color=color, linewidth=2.4, zorder=10)
+    high = np.array(volume.shape) - 0.5
+    box = np.array([[x, y, z] for x in (-0.5, high[0]) for y in (-0.5, high[1]) for z in (-0.5, high[2])])
+    edges = [(shown(box[i]), shown(box[j])) for i in range(8) for j in range(i + 1, 8)
+             if np.count_nonzero(box[i] != box[j]) == 1]
+    axis.add_collection3d(Line3DCollection(edges, colors=edge, linewidths=0.8))
+    sx, sy, sz = volume.shape
+    axis.set_xlim(0, sx)
+    axis.set_ylim(0, sz)
+    axis.set_zlim(0, sy)
+    axis.set_box_aspect((sx, sz, sy))
+    axis.view_init(elev=18, azim=-58)
+    axis.set_axis_off()
+    for i, (color, gray, mask) in enumerate(images):
+        thumb = figure.add_axes([0.72, 0.675 - i * 0.325, 0.26, 0.3], facecolor=background)
+        thumb.imshow(np.dstack([gray] * 3 + [np.where(mask, 255, 0).astype(np.uint8)]))
+        thumb.set_xticks([])
+        thumb.set_yticks([])
+        for spine in thumb.spines.values():
+            spine.set_color(color)
+            spine.set_linewidth(3)
+    figure.savefig(path, dpi=150, facecolor=background)
+    plt.close(figure)
+    print(f"wrote {path.relative_to(ROOT)}: {path.stat().st_size / 1e3:.0f} KB")
+
+
 def main():
+    if "--hero" in sys.argv:
+        hero(ROOT / "data" / "MRHead.nrrd", ROOT / "docs" / "experiment" / "hero.png")
+        return
     if "--gif" in sys.argv:
         experiment = ROOT / "docs" / "experiment"
         preview_gif(experiment / "mrhead_rotate.mp4", experiment / "preview.gif")
