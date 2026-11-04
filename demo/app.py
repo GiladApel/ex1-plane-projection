@@ -28,7 +28,7 @@ from projection import InvalidInputError, Volume, load_nrrd, make_projector, pla
 from projection.render import IntensityWindow  # noqa: E402
 from projection.sampler import Interpolation  # noqa: E402
 
-VOLUMES = ["MRHead (MRI of a head, 256 x 256 x 130)", "Synthetic sphere and cube (no download)"]
+VOLUMES = ["MRHead, MRI, 256x256x130", "Sphere and cube, 160^3"]
 
 
 @st.cache_resource(show_spinner="Loading the volume...")
@@ -137,7 +137,7 @@ def main() -> None:
     with left:
         st.pyplot(sketch(volume.shape, points), clear_figure=True)
         st.markdown("**The plane as a CSV row** (the lecturer's format):")
-        st.code(csv_row(points), language="text")
+        st.code(csv_row(points), language="text", wrap_lines=True)
     with right:
         try:
             plane = plane_from_points(points, force=True)
