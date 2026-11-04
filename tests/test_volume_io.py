@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import nrrd
 import numpy as np
 import pytest
@@ -8,8 +6,6 @@ from projection import synthetic
 from projection.errors import InvalidInputError
 from projection.io_nrrd import load_nrrd
 from projection.volume import Volume
-
-MRHEAD = Path(__file__).resolve().parent.parent / "data" / "MRHead.nrrd"
 
 
 def save(tmp_path, data, header=None):
@@ -107,13 +103,3 @@ def test_world_to_voxel_requires_metadata():
     with pytest.raises(InvalidInputError, match="spatial metadata"):
         Volume(np.zeros((2, 2, 2), dtype=np.uint8)).world_to_voxel(np.zeros((1, 3)))
 
-
-@pytest.mark.skipif(not MRHEAD.is_file(), reason="data/MRHead.nrrd not downloaded")
-def test_loads_mrhead():
-    vol = load_nrrd(MRHEAD)
-    assert vol.shape == (256, 256, 130)
-    assert vol.dtype == np.dtype(np.uint16)
-    assert vol.value_offset == 0
-    assert vol.origin is not None and vol.directions.shape == (3, 3)
-    idx = vol.world_to_voxel(vol.origin[None, :])
-    np.testing.assert_allclose(idx, [[0, 0, 0]], atol=1e-9)

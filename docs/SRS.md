@@ -164,6 +164,7 @@ The open points of the assignment are listed in [section 6](#6-assumptions-to-co
 | NFR4.1 | Each projection engine shall release the resources it holds (threads, buffers) through `close()` or at the end of a `with` block, and shall stay usable after closing. | Should |
 | **NFR5** | **Portability**: the program shall run on Python 3.10 to 3.14, with and without Numba installed. | Should |
 | **NFR6** | **Determinism**: the same inputs shall give the same images on every run, backend and thread count. | Should |
+| NFR6.1 | The published experiment results shall stay reproducible: on the real MRHead scan, every frame of the experiment planes shall equal its recorded value on every operating system and Python version in CI, and the committed videos shall match what the current code produces. | Should |
 
 ## 5. Design decisions
 
@@ -230,7 +231,7 @@ Each requirement, where it is implemented, and the tests that verify it. Test fi
 
 | Requirement | Design (module, decision) | Verified by |
 |---|---|---|
-| FR1.1 | `io_nrrd.load_nrrd`, `volume.Volume` | `test_volume_io::test_roundtrip_keeps_axis_order_and_dtype`, `::test_axis_order_distinguishes_axes`, `::test_loads_mrhead` |
+| FR1.1 | `io_nrrd.load_nrrd`, `volume.Volume` | `test_volume_io::test_roundtrip_keeps_axis_order_and_dtype`, `::test_axis_order_distinguishes_axes`; `test_real_data::test_loads_mrhead` |
 | FR1.2 | `io_nrrd._to_unsigned`, D17 | `test_volume_io::test_signed_non_negative_is_cast_without_offset`, `::test_signed_negative_is_shifted` |
 | FR1.3 | `io_nrrd.load_nrrd`, `volume.Volume.__post_init__` | `test_volume_io::test_rejects_4d`, `::test_rejects_float`, `::test_rejects_missing_file`, `::test_rejects_garbage_file`, `::test_rejects_oversize_dimension`, `::test_volume_rejects_bad_dtype_and_rank`; `test_cli::test_non_3d_nrrd_is_rejected`, `::test_missing_nrrd_is_reported` |
 | FR2.1 | `plane_csv._is_counted`, `._parse_row`, D14 | `test_plane_csv::test_counted_layout_*` (6 tests); `test_cli::test_lecturer_csv_format` |
@@ -266,15 +267,16 @@ Each requirement, where it is implemented, and the tests that verify it. Test fi
 | FR9.2 | `cli.main`, `errors.InvalidInputError` | `test_cli::test_bad_arguments_exit_with_code_2`, `::test_missing_nrrd_is_reported`, `::test_problems_with_the_whole_file_still_stop_the_run`, `::test_a_failing_projection_gives_an_error_frame_and_exit_code_1` |
 | FR9.3 | `cli.run` | `test_cli::test_missing_output_directory` |
 | FR9.4 | `cli.run` | `test_cli::test_demo_writes_one_frame_per_row_with_constant_size`; `test_performance::test_demo_end_to_end_speed` |
-| FR10.1 | `volume.Volume.world_to_voxel`, D1, D15 | `test_volume_io::test_world_to_voxel_roundtrip`; `test_cli::test_world_coordinates_are_converted`; `test_plane_csv::test_to_voxel_is_applied` |
+| FR10.1 | `volume.Volume.world_to_voxel`, D1, D15 | `test_volume_io::test_world_to_voxel_roundtrip`; `test_real_data::test_world_coordinates_give_the_voxel_images` (MRHead: anisotropic, axes swapped and flipped); `test_cli::test_world_coordinates_are_converted`; `test_plane_csv::test_to_voxel_is_applied` |
 | FR10.2 | `cli.run`, `volume.Volume.world_to_voxel` | `test_volume_io::test_world_to_voxel_requires_metadata`; `test_cli::test_world_coordinates_without_metadata_stop_the_run` |
 | NFR1.1 | `kernels_numba`, `projector.NumbaProjector` | `test_performance::test_projection_speed_on_500_cubed` (Numba, nearest); `scripts/bench.py`, `scripts/bench_matrix.py` |
 | NFR1.2 | `projector.NumpyProjector` | `test_performance::test_projection_speed_on_500_cubed` (NumPy, nearest) |
 | NFR1.3 | `kernels_numba.project_trilinear` | `test_performance::test_projection_speed_on_500_cubed` (Numba, trilinear) |
 | NFR1.4 | CI job "speed ratios" | `test_performance::test_numba_scales_with_threads`, `::test_numba_is_much_faster_than_numpy` (marked `portable`, run in CI) |
-| NFR2 | same arithmetic in all backends (ALGORITHM section 4) | `test_backend_equivalence::test_random_planes_match_reference` (Hypothesis), `::test_triangle_matches_reference`, `::test_half_integer_coordinates_lock_the_rounding_rule` |
+| NFR2 | same arithmetic in all backends (ALGORITHM section 4) | `test_backend_equivalence::test_random_planes_match_reference` (Hypothesis), `::test_triangle_matches_reference`, `::test_half_integer_coordinates_lock_the_rounding_rule`; on MRHead: `test_real_data::test_axis_planes_are_the_array_slices`, `::test_sweep_experiment_is_the_y_slices` |
 | NFR3 | `cli.main` (catches `InvalidInputError`), `cli.run` (error frames) | the error tests of `test_cli` (exit code and one `error:` line, or warnings and error frames) |
 | NFR4 | `Projector` interface, `Interpolation` | `ruff check .` and `mypy` in CI; review of [DESIGN.md](DESIGN.md) |
 | NFR4.1 | `Projector.close`, `__enter__`, `__exit__`; `NumpyProjector.close`; `cli.run` | `test_backend_equivalence::test_every_backend_is_a_context_manager`, `::test_closing_the_numpy_engine_stops_its_threads_and_it_stays_usable` |
 | NFR5 | `pyproject.toml` (Numba optional) | CI matrix: Python 3.10 to 3.14, each with and without Numba |
 | NFR6 | closed-form positions (D7), fixed summation order | `test_backend_equivalence::test_numpy_result_does_not_depend_on_thread_count`; seeded synthetic data |
+| NFR6.1 | `tests/data/mrhead_golden.json` (CRC-32 per frame); CI downloads MRHead and fails if it is missing | `test_real_data::test_rotate_experiment_reproduces_the_golden_frames` (every backend, both samplers), `::test_cli_renders_the_rotation_experiment`, `::test_published_videos_match_the_program` |
