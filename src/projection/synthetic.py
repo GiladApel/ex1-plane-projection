@@ -25,6 +25,14 @@ def sphere(shape: tuple[int, int, int], dtype=np.uint8) -> np.ndarray:
     return np.where(dist2 <= radius**2, np.iinfo(dtype).max, 0).astype(dtype)
 
 
+def cube(shape: tuple[int, int, int], low: int, side: int, dtype=np.uint8) -> np.ndarray:
+    """Voxels low .. low+side-1 on every axis hold the dtype's maximum, the rest 0. With nearest sampling the
+    cube fills the continuous box [low - 0.5, low + side - 0.5) on each axis: edge length exactly `side`."""
+    data = np.zeros(shape, dtype=dtype)
+    data[low:low + side, low:low + side, low:low + side] = np.iinfo(dtype).max
+    return data
+
+
 def checkerboard(shape: tuple[int, int, int], dtype=np.uint8, cell: int = 8) -> np.ndarray:
     """Alternating 0 / max cells of the given edge length."""
     x, y, z = np.ogrid[tuple(slice(0, s) for s in shape)]

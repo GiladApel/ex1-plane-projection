@@ -15,12 +15,13 @@
 | Unit: inputs | Plane validation (isosceles, collinear, degenerate, non-finite, trapezoid coplanarity), CSV parsing for both layouts with line-numbered errors, NRRD loading (dtypes, axis order, signed conversion, 4D rejection, garbage files), world-to-voxel conversion | `test_geometry.py`, `test_plane_csv.py`, `test_volume_io.py`, `test_synthetic.py` |
 | Unit: plane generators | Sweep planes reproduce each slice exactly; rotation planes are valid, centered and contain the axis; CSV round trip; constant frame size | `test_plane_gen.py` |
 | Correctness | Reference projector against independent answers: axis-aligned planes equal NumPy slices for all 6 axis permutations and 3 dtypes; exact pixel counts on a gradient; oblique plane against a closed form; apex row; plane fully and partly outside; no holes in rows; trilinear weights and uint32 overflow safety; `out` buffer handling | `test_reference_projector.py` |
+| Known answers from geometry | Cuts through a cube: an axis-aligned cut equals the face, the cut through the center perpendicular to the diagonal is a regular hexagon of area 3√3/4·s², corner cuts are equilateral triangles of area √3/2·t²; cuts through a sphere at any orientation are disks of area π(r²−d²); all within one outline of pixels. Points exactly halfway between voxels along 3-4-5, 5-12-13, 8-15-17 and 20-21-29 directions, with integer row widths, compared on every backend with the voxel computed in exact fractions | `test_known_answers.py` |
 | Equivalence | NumPy (single and forced multi-chunk) and Numba equal the reference exactly: Hypothesis over random and axis-aligned planes, all dtypes, both samplers; half-integer coordinates that lock the rounding rule; thread-count independence (1, 2, 3, 7); backend selection and fallback when Numba is missing | `test_backend_equivalence.py` |
 | Rendering | Intensity window, canvas centering and even sizing, video writer checks | `test_render.py` |
 | End to end | CLI on synthetic data: one frame per row, constant even frame size, black frame for an outside plane, both backends give identical decoded video, trilinear, trapezoids, the lecturer's example sheet (counted layout, mixed shapes, one non-isosceles triangle that gives a warning), point-per-row CSV with one or several planes, `--world`, `--force`, bad rows that become error frames while the run goes on, whole-file errors that stop it, a failing projection (exit code 1), error exit codes, output directory check, subprocess run of `Ex0.py` | `test_cli.py` |
 | Performance | 500^3 uint8, 40 random oblique planes, best of 3 medians. Absolute floors: Numba nearest 500 fps, Numba trilinear 250, NumPy nearest 100 (about half of the measured speed). Portable: Numba on all threads at least 3x its 1-thread speed (1.5x on 4-thread machines), Numba at least 1.4x NumPy (measured 4x on the reference machine, 1.9x on CI runners). End to end: the demo on 180 frames of 446x446 at 100+ fps projection and 30+ fps including encoding. Run with `pytest -m slow` | `test_performance.py`, `scripts/bench.py`, `scripts/bench_matrix.py` |
 
-249 tests: 243 in the default run and 6 slow ones (2 of them portable, also run in CI).
+278 tests: 272 in the default run and 6 slow ones (2 of them portable, also run in CI).
 
 ## Failure reports
 
@@ -49,7 +50,7 @@ The full matrix, from each requirement (FR1.1 to NFR6) to the module that implem
 
 ## Coverage and its limits
 
-Statement coverage of the package is 90 percent (`pytest --cov=projection`). Two caveats:
+Statement coverage of the package is 92 percent (`pytest --cov=projection`). Two caveats:
 - `kernels_numba.py` shows 11 percent because compiled code is invisible to the coverage tool. It is verified by the equivalence tests instead, which compare its output with the reference.
 - The remaining uncovered lines are error branches that need unusual files (for example a singular direction matrix).
 
@@ -62,7 +63,7 @@ Statement coverage of the package is 90 percent (`pytest --cov=projection`). Two
 ## Running
 
 ```
-pytest                 # 243 tests, about 15 seconds
+pytest                 # 272 tests, about 15 seconds
 pytest -m slow         # all performance tests, about 20 seconds and about 150 MB of memory (run on mains power)
 pytest -m portable     # only the machine-independent speed tests, as in CI
 pytest --cov=projection --cov-report=term-missing
