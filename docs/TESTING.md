@@ -33,24 +33,7 @@ Video content is checked by decoding the mp4 and comparing frame counts, sizes a
 
 ## Traceability
 
-| Requirement | Verified by |
-|---|---|
-| FR1 NRRD loading | `test_volume_io.py`, `test_cli.py` (non-3D file) |
-| FR2 CSV parsing | `test_plane_csv.py`, `test_cli.py` (bad CSV, point-per-row) |
-| FR3 plane validation | `test_geometry.py`, `test_plane_csv.py` (line numbers, non-isosceles warning), `test_cli.py` (warning and `--force`) |
-| FR4 projection | `test_reference_projector.py`, `test_backend_equivalence.py` |
-| FR5 outside the volume | `test_reference_projector.py`, `test_backend_equivalence.py`, `test_cli.py` |
-| FR6 sampling modes | `test_reference_projector.py`, `test_backend_equivalence.py` |
-| FR7 backends | `test_backend_equivalence.py` |
-| FR8 video | `test_cli.py`, `test_render.py` |
-| FR9 CLI and exit codes | `test_cli.py` |
-| FR10 world coordinates | `test_volume_io.py`, `test_cli.py` |
-| NFR1 speed | `test_performance.py`, `scripts/bench.py` |
-| NFR2 exact equality | `test_backend_equivalence.py` |
-| NFR3 no tracebacks on bad input | `test_cli.py` error tests |
-| NFR4 maintainability | review of [DESIGN.md](DESIGN.md); not machine-tested |
-| NFR5 Python versions and no-Numba | CI matrix (below) |
-| NFR6 determinism | `test_backend_equivalence.py` (thread-count independence, seeded data) |
+The full matrix, from each requirement (FR1.1 to NFR6) to the module that implements it and the tests that verify it, is in [SRS.md section 9](SRS.md#9-traceability). Every functional requirement has at least one automated test; NFR4 (maintainability) is checked by `ruff`, `mypy` and review, and NFR5 (portability) by the CI matrix.
 
 ## Continuous integration
 

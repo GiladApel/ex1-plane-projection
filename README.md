@@ -98,7 +98,7 @@ End-to-end speed including mp4 encoding: 46 to 393 fps depending on frame size.
 | To-do item | Where |
 |---|---|
 | 1. Repository, problem and scope | this README |
-| 2. SRS | [docs/SRS.md](docs/SRS.md) |
+| 2. SRS | [docs/SRS.md](docs/SRS.md): requirements with priorities, use cases, traceability to tests; [docs/DEVIATIONS.md](docs/DEVIATIONS.md): every difference from the assignment text |
 | 3. Main algorithm in detail | [docs/ALGORITHM.md](docs/ALGORITHM.md), pseudo-code in the docstrings of `src/projection/` |
 | 4. Data set of NRRD files | [data/MANIFEST.md](data/MANIFEST.md), `scripts/download_data.py`, `scripts/make_synthetic.py` |
 | 5. Testing strategy, including the demo | [docs/TESTING.md](docs/TESTING.md) |
