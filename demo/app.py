@@ -221,13 +221,17 @@ def scene_3d(volume: Volume, plane, rows: list[dict], image: np.ndarray, pixel: 
             traces.append(go.Scatter3d(x=used[:, 0], y=used[:, 1], z=used[:, 2], mode="markers",
                                        name="8 corner voxels", marker={"size": 4, "color": CHOSEN, "symbol": "diamond"},
                                        hoverinfo="skip"))
-    normal = np.cross(b1 - a1_0, b2 - a1_0 if np.allclose(a1_0, a2_0) else a2_0 - a1_0)
-    normal /= np.linalg.norm(normal)
-    side = np.cross(normal, [0, 0, 1]) if abs(normal[2]) < 0.9 else np.cross(normal, [1, 0, 0])
-    eye = 1.6 * normal + 0.6 * side / np.linalg.norm(side)   # face the plane, turned a little to show depth
+    # Orient the view like the image: the top edge up, rail 1 (column 0) on the left, facing the plane and
+    # turned a little to show depth. The screen's right is forward x up, so facing along across x up puts
+    # the direction from rail 1 to rail 2 on the right.
+    up = (a1_0 + a2_0) / 2 - (b1 + b2) / 2
+    up /= np.linalg.norm(up)
+    across = (b2 - b1) / np.linalg.norm(b2 - b1)
+    eye = 1.6 * np.cross(across, up) + 0.5 * across
     figure = go.Figure(traces)
     figure.update_layout(scene={"aspectmode": "data", "xaxis_title": "x", "yaxis_title": "y", "zaxis_title": "z",
-                                "camera": {"eye": dict(zip("xyz", eye.tolist(), strict=True))}},
+                                "camera": {"eye": dict(zip("xyz", eye.tolist(), strict=True)),
+                                           "up": dict(zip("xyz", up.tolist(), strict=True))}},
                          margin={"l": 0, "r": 0, "t": 0, "b": 0}, height=520,
                          legend={"yanchor": "top", "y": 0.98, "xanchor": "left", "x": 0.0})
     return figure
